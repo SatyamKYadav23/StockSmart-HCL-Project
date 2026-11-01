@@ -296,17 +296,14 @@ npx ng build
 
 Detailed architecture specifications and design documents are located in `stocksmart/docs/`:
 
-* 🏛️ [System Architecture Document](stocksmart/docs/ArchitectureDocument.md) — Concurrency control, transaction boundaries, and component interaction.
-* 🗄️ [Database Design & ER Diagram](stocksmart/docs/DatabaseDesign.md) — Relational schema, indices, foreign keys, and constraints.
-* 🔌 [REST API Endpoint Documentation](stocksmart/docs/API_DOCUMENTATION.md) — Comprehensive endpoint schemas and curl examples.
-* 🧪 [Testing & QA Strategy](stocksmart/docs/TESTING.md) — Test suites, edge cases, and concurrency testing.
-* 🚀 [Production Deployment Guide](stocksmart/docs/DEPLOYMENT.md) — Production hardening, MySQL configuration, and reverse proxy setup.
+* 🏛️ [System Architecture Document](stocksmart-backend/docs/ArchitectureDocument.md) — Concurrency control, transaction boundaries, and component interaction.
+* 🗄️ [Database Design & ER Diagram](stocksmart-backend/docs/DatabaseDesign.md) — Relational schema, indices, foreign keys, and constraints.
+* 🔌 [REST API Endpoint Documentation](stocksmart-backend/docs/API_DOCUMENTATION.md) — Comprehensive endpoint schemas and curl examples.
+* 🧪 [Testing & QA Strategy](stocksmart-backend/docs/TESTING.md) — Test suites, edge cases, and concurrency testing.
+* 🚀 [Production Deployment Guide](stocksmart-backend/docs/DEPLOYMENT.md) — Production hardening, MySQL configuration, and reverse proxy setup.
 
 ---
 
 ## Contributors & Acknowledgements
 Developed for **HCL Retail Enterprise Systems**. Built with Java 21, Spring Boot, and Angular 22.
 
-=======
-# StockSmart-HCL-Project
->>>>>>> cebf4a2dc7082e1a38e8e36c2dd37a19e51f7109
