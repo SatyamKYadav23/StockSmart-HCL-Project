@@ -1,4 +1,4 @@
-<<<<<<< HEAD
+
 # StockSmart — Multi-Facility Retail Inventory Management System
 
 [![Java 21](https://img.shields.io/badge/Java-21%20LTS-orange.svg?style=flat-square&logo=openjdk)]()
