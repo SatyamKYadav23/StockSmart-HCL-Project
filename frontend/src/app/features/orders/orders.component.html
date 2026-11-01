@@ -1,0 +1,466 @@
+<div class="feature-page-container">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="alert-success-box" style="margin-bottom: 2px;">
+    <app-icon name="check" [size]="16"></app-icon>
+    <span class="font-medium">{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Orders Management</h2>
+      <p class="page-subtitle">Manually recorded retail sales, customer dispatches, and inventory-backed orders</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadAllData()"
+        [disabled]="isLoading()"
+        title="Refresh orders from database"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>Record New Order</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Filter Card -->
+  <div class="ss-card">
+    <div class="filter-bar">
+      <!-- Search Input -->
+      <div class="search-box">
+        <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          class="ss-input ss-input-with-icon"
+          placeholder="Filter by order #, customer, facility, or remarks..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+
+      <!-- Status Filter -->
+      <div class="filter-controls">
+        <select
+          class="ss-select"
+          [ngModel]="statusFilter()"
+          (ngModelChange)="statusFilter.set($event)"
+        >
+          <option value="ALL">All Order Statuses</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="PENDING">Pending</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="ss-table-container">
+      <!-- Loading Skeleton -->
+      <div *ngIf="isLoading()" style="padding: 16px;">
+        <app-loading-skeleton *ngFor="let i of [1, 2, 3, 4, 5]" height="38px" extraClass="table-skeleton-row"></app-loading-skeleton>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="!isLoading() && hasError()" style="padding: 32px;">
+        <app-error-state
+          title="Unable to load orders"
+          [description]="errorMessage()"
+          [showRetry]="true"
+          (retry)="loadAllData()"
+        ></app-error-state>
+      </div>
+
+      <!-- Loaded Data Table -->
+      <table *ngIf="!isLoading() && !hasError() && filteredOrders().length > 0" class="ss-table">
+        <thead>
+          <tr>
+            <th>Order #</th>
+            <th>Date</th>
+            <th>Customer / Counterparty</th>
+            <th>Fulfillment Facility</th>
+            <th class="ss-table-numeric">Line Items</th>
+            <th class="ss-table-numeric">Total Amount</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let order of filteredOrders()" class="interactive-row" (click)="openDetailsModal(order)">
+            <td class="font-mono font-semibold text-primary">
+              {{ order.orderNumber }}
+            </td>
+            <td>
+              <span class="text-sm text-muted font-mono">{{ order.orderDate | date:'mediumDate' }}</span>
+            </td>
+            <td>
+              <span class="text-sm font-medium text-primary">{{ order.customerName || 'Walk-in Customer' }}</span>
+            </td>
+            <td>
+              <span class="text-sm text-secondary">{{ order.locationName || 'Unassigned' }}</span>
+            </td>
+            <td class="ss-table-numeric font-mono font-medium">
+              {{ order.items ? order.items.length : 0 }} items
+            </td>
+            <td class="ss-table-numeric font-mono font-semibold">
+              {{ order.totalAmount | currencyFormat:'INR' }}
+            </td>
+            <td>
+              <app-badge [variant]="getOrderStatusVariant(order.status)" size="sm">
+                {{ order.status }}
+              </app-badge>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading() && !hasError() && filteredOrders().length === 0" style="padding: 32px;">
+        <app-empty-state
+          icon="orders"
+          title="No orders found"
+          description="No retail orders match your current filter settings or search query."
+        ></app-empty-state>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       ORDER DETAILS MODAL
+       ========================================================================= -->
+  <div *ngIf="isDetailsModalOpen()" class="modal-backdrop" (click)="closeDetailsModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Order Details: {{ selectedOrder()?.orderNumber }}</h3>
+          <p class="modal-subtitle">Transaction summary and line-item breakdown</p>
+        </div>
+        <button
+          type="button"
+          class="modal-close-btn"
+          (click)="closeDetailsModal()"
+          aria-label="Close dialog"
+        >
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <div *ngIf="selectedOrder() as order" class="modal-body">
+        <div class="detail-section">
+          <div class="detail-row">
+            <span class="detail-label">Order Number:</span>
+            <span class="detail-value font-mono font-semibold">{{ order.orderNumber }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Status:</span>
+            <span class="detail-value">
+              <app-badge [variant]="getOrderStatusVariant(order.status)" size="sm">
+                {{ order.status }}
+              </app-badge>
+            </span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Order Date:</span>
+            <span class="detail-value font-mono text-muted">{{ order.orderDate | date:'medium' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Customer / Counterparty:</span>
+            <span class="detail-value font-medium">{{ order.customerName || 'Walk-in Customer' }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Fulfillment Facility:</span>
+            <span class="detail-value text-secondary">{{ order.locationName || 'Unassigned' }}</span>
+          </div>
+          <div *ngIf="order.remarks" class="detail-row">
+            <span class="detail-label">Remarks:</span>
+            <span class="detail-value text-xs text-muted">{{ order.remarks }}</span>
+          </div>
+        </div>
+
+        <!-- Items Table -->
+        <div>
+          <h4 class="items-title" style="margin-bottom: 8px;">Order Line Items ({{ order.items ? order.items.length : 0 }})</h4>
+          <table *ngIf="order.items && order.items.length > 0" class="ss-table" style="border: 1px solid var(--border-subtle); border-radius: var(--radius-sm);">
+            <thead>
+              <tr>
+                <th>Product & SKU</th>
+                <th class="ss-table-numeric">Qty</th>
+                <th class="ss-table-numeric">Unit Price</th>
+                <th class="ss-table-numeric">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of order.items">
+                <td>
+                  <div style="display: flex; flex-direction: column; gap: 1px;">
+                    <span class="font-semibold text-primary">{{ item.productName }}</span>
+                    <span class="font-mono text-muted" style="font-size: 0.6875rem;">{{ item.productSku }}</span>
+                  </div>
+                </td>
+                <td class="ss-table-numeric font-mono font-medium">{{ item.quantity | number }}</td>
+                <td class="ss-table-numeric font-mono text-secondary">{{ item.unitPrice | currencyFormat:'INR' }}</td>
+                <td class="ss-table-numeric font-mono font-semibold">{{ item.subtotal | currencyFormat:'INR' }}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div *ngIf="!order.items || order.items.length === 0" style="padding: 16px; background-color: var(--color-slate-50); border-radius: var(--radius-sm); text-align: center;">
+            <span class="text-xs text-muted">No line item details recorded for this legacy order.</span>
+          </div>
+        </div>
+
+        <!-- Order Total -->
+        <div class="totals-summary">
+          <span class="totals-label">Total Amount:</span>
+          <span class="totals-amount">{{ order.totalAmount | currencyFormat:'INR' }}</span>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="ss-btn ss-btn-secondary" (click)="closeDetailsModal()">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       RECORD NEW ORDER MODAL (REACTIVE FORM)
+       ========================================================================= -->
+  <div *ngIf="isCreateModalOpen()" class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Record New Order</h3>
+          <p class="modal-subtitle">Operational inventory transaction with atomic deduction and movement audit</p>
+        </div>
+        <button
+          type="button"
+          class="modal-close-btn"
+          (click)="closeCreateModal()"
+          aria-label="Close dialog"
+        >
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <form [formGroup]="orderForm" (ngSubmit)="submitOrder()" class="modal-body">
+        <!-- Error Alert -->
+        <div *ngIf="modalError()" class="alert-danger-box">
+          <app-icon name="alert-circle" [size]="16"></app-icon>
+          <span>{{ modalError() }}</span>
+        </div>
+
+        <!-- Header Inputs -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="ord-num">
+              Order # <span class="text-danger">*</span>
+            </label>
+            <input
+              id="ord-num"
+              type="text"
+              formControlName="orderNumber"
+              class="ss-input font-mono"
+              placeholder="e.g. ORD-1002"
+              [class.input-error]="orderForm.get('orderNumber')?.touched && orderForm.get('orderNumber')?.invalid"
+            />
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ord-status">
+              Order Processing Status <span class="text-danger">*</span>
+            </label>
+            <select
+              id="ord-status"
+              formControlName="status"
+              class="ss-select"
+            >
+              <option value="COMPLETED">COMPLETED (Fulfill & Deduct Stock Now)</option>
+              <option value="PENDING">PENDING (Record Order Draft)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="ord-loc">
+              Fulfillment Facility <span class="text-danger">*</span>
+            </label>
+            <select
+              id="ord-loc"
+              formControlName="locationId"
+              class="ss-select"
+              [class.input-error]="orderForm.get('locationId')?.touched && orderForm.get('locationId')?.invalid"
+            >
+              <option [ngValue]="null" disabled>Select Facility</option>
+              <option *ngFor="let loc of locations()" [value]="loc.id">
+                {{ loc.name }} ({{ loc.locationType }})
+              </option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="ord-customer">
+              Customer / Counterparty
+            </label>
+            <input
+              id="ord-customer"
+              type="text"
+              formControlName="customerName"
+              class="ss-input"
+              placeholder="e.g. Counter Retail Client, Acme Corp"
+            />
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="ord-remarks">
+            Order Remarks / Reference
+          </label>
+          <input
+            id="ord-remarks"
+            type="text"
+            formControlName="remarks"
+            class="ss-input"
+            placeholder="e.g. Manual POS ticket #492, Cash on delivery"
+          />
+        </div>
+
+        <!-- Line Items Section -->
+        <div class="items-header">
+          <span class="items-title">Order Line Items ({{ itemsArray.length }})</span>
+          <button
+            type="button"
+            class="ss-btn ss-btn-secondary"
+            style="padding: 4px 10px; font-size: 0.75rem;"
+            (click)="addItem()"
+          >
+            <app-icon name="plus" [size]="12"></app-icon>
+            <span>Add Item</span>
+          </button>
+        </div>
+
+        <div formArrayName="items" style="display: flex; flex-direction: column; gap: 10px;">
+          <div
+            *ngFor="let itemGroup of itemsArray.controls; let i = index"
+            [formGroupName]="i"
+            class="item-row-card"
+          >
+            <div class="item-row-grid">
+              <!-- Product Select -->
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.6875rem;">Product</label>
+                <select
+                  formControlName="productId"
+                  class="ss-select"
+                  (change)="onProductSelected(i)"
+                  [class.input-error]="itemGroup.get('productId')?.touched && itemGroup.get('productId')?.invalid"
+                >
+                  <option [ngValue]="null" disabled>Select Product</option>
+                  <option *ngFor="let prod of products()" [value]="prod.id">
+                    {{ prod.name }} ({{ prod.sku }})
+                  </option>
+                </select>
+              </div>
+
+              <!-- Quantity -->
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.6875rem;">Qty</label>
+                <input
+                  type="number"
+                  min="1"
+                  formControlName="quantity"
+                  class="ss-input font-mono"
+                  placeholder="1"
+                  [class.input-error]="itemGroup.get('quantity')?.touched && itemGroup.get('quantity')?.invalid"
+                />
+              </div>
+
+              <!-- Unit Price -->
+              <div class="form-group">
+                <label class="form-label" style="font-size: 0.6875rem;">Unit Price (₹)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  formControlName="unitPrice"
+                  class="ss-input font-mono"
+                />
+              </div>
+
+              <!-- Remove Item Button -->
+              <div>
+                <button
+                  type="button"
+                  class="btn-remove-item"
+                  (click)="removeItem(i)"
+                  [disabled]="itemsArray.length === 1"
+                  title="Remove this item"
+                >
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              </div>
+            </div>
+
+            <!-- Live Stock Check & Subtotal Preview -->
+            <div class="stock-preview-chip">
+              <span *ngIf="itemGroup.get('productId')?.value && orderForm.get('locationId')?.value">
+                Available Stock at Facility:
+                <strong class="font-mono">{{ getAvailableStock(itemGroup.get('productId')?.value, orderForm.get('locationId')?.value) }}</strong> units
+              </span>
+              <span *ngIf="!itemGroup.get('productId')?.value || !orderForm.get('locationId')?.value" class="text-muted">
+                Select product and facility to verify live on-hand stock
+              </span>
+              <span class="font-mono font-semibold text-primary">
+                Subtotal: {{ getItemSubtotal(i) | currencyFormat:'INR' }}
+              </span>
+            </div>
+
+            <!-- Insufficient Stock Warning -->
+            <div *ngIf="hasInsufficientStockForItem(i)" class="alert-danger-box" style="padding: 6px 10px; margin-top: -4px;">
+              <app-icon name="alert-circle" [size]="14"></app-icon>
+              <span>Insufficient inventory: Requested quantity exceeds the {{ getAvailableStock(itemGroup.get('productId')?.value, orderForm.get('locationId')?.value) }} units available at this location.</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Total Summary Box -->
+        <div class="totals-summary">
+          <span class="totals-label">Order Total Preview:</span>
+          <span class="totals-amount">{{ getOrderTotalAmount() | currencyFormat:'INR' }}</span>
+        </div>
+
+        <!-- Global Insufficient Stock Block Alert -->
+        <div *ngIf="hasAnyStockError()" class="alert-danger-box">
+          <app-icon name="alert-circle" [size]="16"></app-icon>
+          <span>Cannot record completed order: One or more line items exceed available stock at the chosen facility.</span>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="modal-footer" style="margin: 0 -20px -20px -20px; padding: 14px 20px;">
+          <button
+            type="button"
+            class="ss-btn ss-btn-secondary"
+            (click)="closeCreateModal()"
+            [disabled]="isSubmitting()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="ss-btn ss-btn-primary"
+            [disabled]="orderForm.invalid || hasAnyStockError() || isSubmitting()"
+          >
+            <span *ngIf="isSubmitting()">Recording Order...</span>
+            <span *ngIf="!isSubmitting()">Record Order</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

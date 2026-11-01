@@ -1,0 +1,307 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.navbar {
+  height: var(--navbar-height);
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: relative;
+  z-index: 10;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02);
+}
+
+/* Left Section */
+.navbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.mobile-menu-toggle {
+  display: none;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.mobile-menu-toggle:hover {
+  background-color: var(--color-slate-100);
+  color: var(--text-primary);
+}
+
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  font-size: 0.8125rem;
+}
+
+.breadcrumb-root {
+  color: var(--text-muted);
+  font-weight: 500;
+  transition: color var(--transition-fast);
+}
+
+.breadcrumb-divider {
+  color: var(--color-slate-300);
+  font-size: 0.75rem;
+}
+
+.breadcrumb-current {
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+
+/* Center Section: Command Search Bar */
+.navbar-center {
+  flex: 1;
+  max-width: 440px;
+}
+
+.command-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+}
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  color: var(--color-slate-400);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  transition: color var(--transition-fast);
+}
+
+.command-search-input {
+  width: 100%;
+  height: 34px;
+  padding: 0 46px 0 34px;
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  background-color: var(--color-slate-50);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  outline: none;
+  transition: all var(--transition-fast);
+}
+
+.command-search-input::placeholder {
+  color: var(--color-slate-400);
+}
+
+.command-search-input:hover:not(:focus) {
+  background-color: #ffffff;
+  border-color: var(--color-slate-400);
+}
+
+.command-search-input:focus {
+  background-color: #ffffff;
+  border-color: var(--color-primary-600);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.command-search-input:focus + .command-shortcut-hint {
+  opacity: 0.5;
+}
+
+.command-shortcut-hint {
+  position: absolute;
+  right: 8px;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+.command-shortcut-hint kbd {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-xs);
+  padding: 1px 5px;
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  box-shadow: var(--shadow-xs);
+}
+
+/* Right Section */
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Live Environment Status */
+.env-status-badge {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  background-color: var(--color-success-bg);
+  border: 1px solid var(--color-success-border);
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--color-success-text);
+  letter-spacing: 0.02em;
+}
+
+.env-status-beacon {
+  position: relative;
+  width: 6px;
+  height: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.beacon-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--color-success-solid);
+}
+
+.beacon-pulse {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background-color: rgba(16, 185, 129, 0.4);
+  animation: env-pulse 2s infinite ease-out;
+}
+
+@keyframes env-pulse {
+  0% { transform: scale(0.6); opacity: 0.9; }
+  100% { transform: scale(1.8); opacity: 0; }
+}
+
+.env-status-label {
+  line-height: 1;
+}
+
+/* Icon Buttons */
+.navbar-icon-btn {
+  position: relative;
+  background: transparent;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  width: 32px;
+  height: 32px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+}
+
+.navbar-icon-btn:hover {
+  background-color: var(--color-slate-100);
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.notification-count-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-danger-solid);
+  color: #ffffff;
+  font-size: 0.625rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-surface);
+  line-height: 1;
+}
+
+/* User Profile Pill */
+.user-profile-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px 3px 4px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.user-profile-btn:hover {
+  background-color: var(--color-slate-100);
+  border-color: var(--border-subtle);
+}
+
+.user-avatar-initials {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: 0.04em;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: var(--shadow-xs);
+}
+
+.user-meta {
+  display: flex;
+  flex-direction: column;
+}
+
+.user-display-name {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.user-role-label {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 16px;
+  }
+  .mobile-menu-toggle {
+    display: flex;
+  }
+  .command-search-bar {
+    display: none;
+  }
+  .env-status-badge {
+    display: none;
+  }
+  .user-meta {
+    display: none;
+  }
+}

@@ -1,0 +1,163 @@
+:host {
+  display: block;
+}
+
+/* Filter Bar */
+.filter-bar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background-color: var(--color-slate-50);
+  flex-wrap: wrap;
+}
+
+.search-box {
+  flex: 1;
+  max-width: 380px;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-slate-400);
+  pointer-events: none;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Table Specifics */
+.name-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.product-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.product-supplier {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+}
+
+.category-pill {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background-color: var(--color-slate-100);
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  border: 1px solid var(--border-subtle);
+  display: inline-block;
+  font-weight: 500;
+}
+
+.barcode-badge {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  letter-spacing: 0.02em;
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-delete:hover {
+  color: var(--color-danger-solid);
+  border-color: var(--color-danger-border);
+  background-color: var(--color-danger-bg);
+}
+
+.table-skeleton-row {
+  margin-bottom: 8px;
+}
+
+.empty-category-notice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.6875rem;
+  color: var(--color-warning-solid);
+  margin-top: 4px;
+}
+
+.category-link {
+  color: var(--color-primary-600);
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.category-link:hover {
+  color: var(--color-primary-700);
+}
+
+.delete-warning-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.delete-sub-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.btn-confirm-delete {
+  background-color: var(--color-danger-solid);
+  border-color: var(--color-danger-solid);
+}
+
+.btn-confirm-delete:hover:not(:disabled) {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}
+
+/* Modal Form Layout: Keep footer & buttons pinned and visible */
+.modal-container {
+  display: flex !important;
+  flex-direction: column !important;
+  max-height: 90vh !important;
+  overflow: hidden !important;
+}
+
+.modal-container > form {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.modal-body {
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  min-height: 0 !important;
+}
+
+.modal-footer {
+  flex-shrink: 0 !important;
+  margin-top: auto !important;
+}
+
+.quick-category-btn {
+  padding: 3px 8px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  margin-top: 4px;
+}

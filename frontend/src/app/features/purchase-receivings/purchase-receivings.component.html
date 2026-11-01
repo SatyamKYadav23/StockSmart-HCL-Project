@@ -1,0 +1,517 @@
+<div class="feature-page-container">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="alert-success-box" style="margin-bottom: 2px;">
+    <app-icon name="check-circle" [size]="16"></app-icon>
+    <span class="font-medium">{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Purchase Receiving</h2>
+      <p class="page-subtitle">Record incoming supplier deliveries, verify quantities, and atomically intake inventory</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadAllData()"
+        [disabled]="isLoading()"
+        title="Refresh receiving records from database"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="openCreateModal()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>Receive Stock</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Metrics Grid -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-blue">
+        <app-icon name="boxes" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Receipts</span>
+        <span class="kpi-value font-mono">{{ totalReceivingsCount() }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-emerald">
+        <app-icon name="dollar" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Received Value</span>
+        <span class="kpi-value font-mono">{{ totalValueReceived() | currencyFormat }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-amber">
+        <app-icon name="inventory" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Units Inbounded</span>
+        <span class="kpi-value font-mono">{{ totalUnitsReceived() | number }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-purple">
+        <app-icon name="suppliers" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Active Suppliers Intake</span>
+        <span class="kpi-value font-mono">{{ activeSuppliersCount() }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Filter Card -->
+  <div class="ss-card">
+    <div class="filter-bar">
+      <!-- Search Input -->
+      <div class="search-box">
+        <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          class="ss-input ss-input-with-icon"
+          placeholder="Filter by receipt #, supplier, facility, or remarks..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+
+      <!-- Status Filter -->
+      <div class="filter-controls">
+        <select
+          class="ss-select"
+          [ngModel]="statusFilter()"
+          (ngModelChange)="statusFilter.set($event)"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="RECEIVED">Received</option>
+          <option value="PENDING">Pending</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="ss-table-container">
+      <!-- Loading Skeleton -->
+      <div *ngIf="isLoading()" style="padding: 16px;">
+        <app-loading-skeleton *ngFor="let i of [1, 2, 3, 4, 5]" height="38px" extraClass="table-skeleton-row"></app-loading-skeleton>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="!isLoading() && hasError()" style="padding: 32px;">
+        <app-error-state
+          title="Unable to load purchase receipts"
+          [description]="errorMessage()"
+          [showRetry]="true"
+          (retry)="loadAllData()"
+        ></app-error-state>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading() && !hasError() && filteredReceivings().length === 0" style="padding: 48px 16px;">
+        <app-empty-state
+          title="No purchase receipts found"
+          description="Record a new delivery intake from a vendor or adjust your filter query."
+          actionText="Receive Stock"
+          (actionClicked)="openCreateModal()"
+        ></app-empty-state>
+      </div>
+
+      <!-- Loaded Data Table -->
+      <table *ngIf="!isLoading() && !hasError() && filteredReceivings().length > 0" class="ss-table">
+        <thead>
+          <tr>
+            <th>Receipt #</th>
+            <th>Intake Date</th>
+            <th>Supplier</th>
+            <th>Destination Facility</th>
+            <th class="ss-table-numeric">Line Items</th>
+            <th class="ss-table-numeric">Total Amount</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let rcv of filteredReceivings()" class="interactive-row" (click)="openDetailsModal(rcv)">
+            <td class="font-mono font-semibold text-primary">
+              {{ rcv.receivingNumber }}
+            </td>
+            <td>
+              <span class="text-sm text-muted font-mono">{{ rcv.receivingDate | date:'mediumDate' }}</span>
+            </td>
+            <td>
+              <div class="entity-cell">
+                <span class="font-medium text-primary">{{ rcv.supplierName }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="facility-cell">
+                <app-icon name="warehouse" [size]="13" [color]="'var(--color-slate-500)'"></app-icon>
+                <span>{{ rcv.locationName }}</span>
+              </div>
+            </td>
+            <td class="ss-table-numeric font-mono">
+              <span class="pill-number">{{ rcv.items ? rcv.items.length : 0 }}</span>
+            </td>
+            <td class="ss-table-numeric font-mono font-semibold">
+              {{ rcv.totalAmount | currencyFormat }}
+            </td>
+            <td>
+              <app-badge [label]="rcv.status" [variant]="getStatusBadgeVariant(rcv.status)"></app-badge>
+            </td>
+            <td style="text-align: right;" (click)="$event.stopPropagation()">
+              <div class="row-actions">
+                <span *ngIf="rcv.status === 'RECEIVED'" class="immutable-pill" title="Immutable inventory ledger record">
+                  <app-icon name="check-circle" [size]="12" [color]="'var(--color-success-solid, #059669)'"></app-icon>
+                  <span>Immutable</span>
+                </span>
+                <button
+                  type="button"
+                  class="action-btn"
+                  title="View Details & Inventory Impact"
+                  (click)="openDetailsModal(rcv)"
+                >
+                  <app-icon name="chevron-right" [size]="15"></app-icon>
+                </button>
+                <button
+                  *ngIf="rcv.status !== 'RECEIVED'"
+                  type="button"
+                  class="action-btn text-danger"
+                  title="Delete Draft / Cancelled Receipt"
+                  (click)="deleteReceiving(rcv, $event)"
+                >
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create Receiving Modal -->
+  <div *ngIf="isCreateModalOpen()" class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Record Purchase Receiving</h3>
+          <span class="modal-subtitle">Intake stock from verified suppliers directly into facility inventory</span>
+        </div>
+        <button type="button" class="modal-close-btn" (click)="closeCreateModal()">
+          <app-icon name="x" [size]="16"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="modalError()" class="alert-danger-box">
+          <app-icon name="alert-triangle" [size]="16"></app-icon>
+          <span>{{ modalError() }}</span>
+        </div>
+
+        <form [formGroup]="receivingForm">
+          <!-- Top Row: Receiving # and Date -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Receiving # <span class="text-danger">*</span></label>
+              <input
+                type="text"
+                class="ss-input font-mono"
+                formControlName="receivingNumber"
+                placeholder="e.g. RCV-2026-001"
+                [class.input-error]="receivingForm.get('receivingNumber')?.invalid && receivingForm.get('receivingNumber')?.touched"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Intake Date & Time <span class="text-danger">*</span></label>
+              <input
+                type="datetime-local"
+                class="ss-input"
+                formControlName="receivingDate"
+              />
+            </div>
+          </div>
+
+          <!-- Second Row: Supplier and Location -->
+          <div class="form-row" style="margin-top: 12px;">
+            <div class="form-group">
+              <label class="form-label">Supplier <span class="text-danger">*</span></label>
+              <select
+                class="ss-select"
+                formControlName="supplierId"
+                [class.input-error]="receivingForm.get('supplierId')?.invalid && receivingForm.get('supplierId')?.touched"
+              >
+                <option [ngValue]="null" disabled>Select Supplier...</option>
+                <option *ngFor="let s of suppliers()" [value]="s.id">
+                  {{ s.name }}
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Destination Facility <span class="text-danger">*</span></label>
+              <select
+                class="ss-select"
+                formControlName="locationId"
+                [class.input-error]="receivingForm.get('locationId')?.invalid && receivingForm.get('locationId')?.touched"
+              >
+                <option [ngValue]="null" disabled>Select Facility...</option>
+                <option *ngFor="let l of locations()" [value]="l.id">
+                  {{ l.name }} ({{ l.locationType || 'WAREHOUSE' }})
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Remarks -->
+          <div class="form-group" style="margin-top: 12px;">
+            <label class="form-label">Remarks / Delivery Note</label>
+            <input
+              type="text"
+              class="ss-input"
+              formControlName="remarks"
+              placeholder="e.g. PO-7890 consignment batch intake"
+            />
+          </div>
+
+          <!-- Line Items Section -->
+          <div style="margin-top: 20px;">
+            <div class="items-header">
+              <span class="items-title">Received Line Items ({{ itemsArray.length }})</span>
+              <button type="button" class="ss-btn ss-btn-secondary" style="padding: 4px 10px; font-size: 0.75rem;" (click)="addItem()">
+                <app-icon name="plus" [size]="12"></app-icon>
+                <span>Add Item</span>
+              </button>
+            </div>
+
+            <div formArrayName="items" style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px;">
+              <div *ngFor="let itemGroup of itemsArray.controls; let i = index" [formGroupName]="i" class="item-row-card">
+                <div class="item-row-grid">
+                  <!-- Product Selection -->
+                  <div class="form-group">
+                    <label class="form-label">Product</label>
+                    <select
+                      class="ss-select"
+                      formControlName="productId"
+                      (change)="onProductSelect(i)"
+                    >
+                      <option [ngValue]="null" disabled>Select Product...</option>
+                      <option *ngFor="let p of products()" [value]="p.id">
+                        {{ p.sku }} — {{ p.name }}
+                      </option>
+                    </select>
+                  </div>
+
+                  <!-- Quantity Received -->
+                  <div class="form-group">
+                    <label class="form-label">Quantity</label>
+                    <input
+                      type="number"
+                      class="ss-input font-mono"
+                      min="1"
+                      formControlName="quantity"
+                      placeholder="Qty"
+                    />
+                  </div>
+
+                  <!-- Unit Cost -->
+                  <div class="form-group">
+                    <label class="form-label">Unit Cost (₹)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="ss-input font-mono"
+                      formControlName="unitCost"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <!-- Remove Item -->
+                  <button
+                    type="button"
+                    class="btn-remove-item"
+                    title="Remove Item"
+                    (click)="removeItem(i)"
+                    [disabled]="itemsArray.length === 1"
+                  >
+                    <app-icon name="x" [size]="14"></app-icon>
+                  </button>
+                </div>
+
+                <!-- Stock Preview Bar for Item -->
+                <div class="stock-preview-chip" *ngIf="itemGroup.get('productId')?.value && receivingForm.get('locationId')?.value">
+                  <span class="preview-text">
+                    Stock Preview at facility:
+                    <strong>Current: {{ getCurrentStock(itemGroup.get('productId')?.value, receivingForm.get('locationId')?.value) }}</strong>
+                    + Received: <strong>{{ itemGroup.get('quantity')?.value || 0 }}</strong>
+                    =&gt; <strong>Projected: {{ getProjectedStock(itemGroup.get('productId')?.value, receivingForm.get('locationId')?.value, itemGroup.get('quantity')?.value) }}</strong>
+                  </span>
+                  <span class="subtotal-text font-mono font-semibold">
+                    Subtotal: {{ getItemSubtotal(i) | currencyFormat }}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Total Calculation Footer -->
+          <div class="totals-summary" style="margin-top: 16px;">
+            <div class="totals-count">
+              <span class="totals-label">Total Received Units:</span>
+              <strong class="font-mono" style="margin-left: 6px;">{{ getFormTotalUnits() }}</strong>
+            </div>
+            <div class="totals-value">
+              <span class="totals-label">Grand Total:</span>
+              <span class="totals-amount" style="margin-left: 8px;">{{ getFormGrandTotal() | currencyFormat }}</span>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="ss-btn ss-btn-secondary"
+          (click)="closeCreateModal()"
+          [disabled]="isSubmitting()"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="ss-btn ss-btn-primary"
+          (click)="submitReceiving()"
+          [disabled]="isSubmitting() || receivingForm.invalid"
+        >
+          <app-icon *ngIf="!isSubmitting()" name="check" [size]="14"></app-icon>
+          <span *ngIf="!isSubmitting()">Confirm & Receive Stock</span>
+          <span *ngIf="isSubmitting()">Processing Intake...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receiving Details Modal -->
+  <div *ngIf="isDetailsModalOpen() && selectedReceiving()" class="modal-backdrop" (click)="closeDetailsModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h3 class="modal-title font-mono">{{ selectedReceiving()?.receivingNumber }}</h3>
+            <app-badge
+              [label]="selectedReceiving()?.status || 'RECEIVED'"
+              [variant]="getStatusBadgeVariant(selectedReceiving()?.status || '')"
+            ></app-badge>
+          </div>
+          <span class="modal-subtitle">
+            Recorded on {{ selectedReceiving()?.receivingDate | date:'medium' }}
+          </span>
+        </div>
+        <button type="button" class="modal-close-btn" (click)="closeDetailsModal()">
+          <app-icon name="x" [size]="16"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Immutability Notice for Finalized Receipts -->
+        <div *ngIf="selectedReceiving()?.status === 'RECEIVED'" class="alert-info-box">
+          <app-icon name="check-circle" [size]="15" [color]="'var(--color-primary-600)'"></app-icon>
+          <span>
+            <strong>Finalized &amp; Immutable:</strong> This receipt has updated on-hand warehouse inventory and created stock movement audit records. It cannot be deleted or modified.
+          </span>
+        </div>
+
+        <!-- Metadata Overview -->
+        <div class="detail-section">
+          <div class="detail-row">
+            <span class="detail-label">Supplier:</span>
+            <strong class="detail-value">{{ selectedReceiving()?.supplierName }}</strong>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Destination Facility:</span>
+            <strong class="detail-value">{{ selectedReceiving()?.locationName }}</strong>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Total Inbounded Value:</span>
+            <strong class="detail-value font-mono font-semibold" style="color: var(--color-success-solid, #059669);">
+              {{ selectedReceiving()?.totalAmount | currencyFormat }}
+            </strong>
+          </div>
+          <div class="detail-row" *ngIf="selectedReceiving()?.remarks">
+            <span class="detail-label">Remarks:</span>
+            <span class="detail-value">{{ selectedReceiving()?.remarks }}</span>
+          </div>
+        </div>
+
+        <!-- Line Items Table -->
+        <div style="margin-top: 12px;">
+          <h4 class="items-title" style="margin-bottom: 8px;">Received Items</h4>
+          <table class="ss-table" style="font-size: 0.8125rem;">
+            <thead>
+              <tr>
+                <th>Product SKU & Name</th>
+                <th class="ss-table-numeric">Qty Received</th>
+                <th class="ss-table-numeric">Unit Cost</th>
+                <th class="ss-table-numeric">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let item of selectedReceiving()?.items">
+                <td>
+                  <span class="font-mono font-semibold">{{ item.productSku }}</span>
+                  <div class="text-xs text-muted">{{ item.productName }}</div>
+                </td>
+                <td class="ss-table-numeric font-mono font-bold">{{ item.quantity }}</td>
+                <td class="ss-table-numeric font-mono">{{ item.unitCost | currencyFormat }}</td>
+                <td class="ss-table-numeric font-mono font-semibold">{{ item.subtotal | currencyFormat }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Inventory Impact Summary Card -->
+        <div class="impact-summary-card">
+          <div class="impact-header">
+            <app-icon name="trending-up" [size]="16" [color]="'var(--color-primary-600)'"></app-icon>
+            <h4 class="impact-title">Inventory Impact Summary</h4>
+          </div>
+          <p class="impact-subtitle">
+            Stock quantities in facility <strong>{{ selectedReceiving()?.locationName }}</strong> have been incremented and audited in the movement ledger.
+          </p>
+
+          <div class="impact-grid">
+            <div *ngFor="let item of selectedReceiving()?.items" class="impact-item-row">
+              <div class="impact-prod-name">
+                <span class="font-mono font-semibold">{{ item.productSku }}</span> — {{ item.productName }}
+              </div>
+              <div class="impact-quantities">
+                <span class="impact-tag tag-received">+{{ item.quantity }} Received</span>
+                <span class="impact-tag tag-status">Audit Ref: {{ selectedReceiving()?.receivingNumber }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="ss-btn ss-btn-secondary" (click)="closeDetailsModal()">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

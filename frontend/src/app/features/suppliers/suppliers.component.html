@@ -1,0 +1,424 @@
+<div class="feature-page-container">
+  <!-- Page Header -->
+  <header class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Supplier Directory</h2>
+      <p class="page-subtitle">Registered vendors, commercial contact details, and catalog product mapping</p>
+    </div>
+
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadData()"
+        [disabled]="isLoading()"
+        title="Refresh supplier list"
+        aria-label="Refresh supplier list"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+
+      <button
+        type="button"
+        class="ss-btn ss-btn-primary"
+        (click)="openCreateModal()"
+        aria-label="Register new supplier"
+      >
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>+ Add Supplier</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Error State -->
+  <div *ngIf="hasError()" class="section-block">
+    <app-error-state
+      title="Unable to load supplier directory"
+      [description]="errorMessage()"
+      (retry)="loadData()"
+    ></app-error-state>
+  </div>
+
+  <!-- Main Card -->
+  <div *ngIf="!hasError()" class="ss-card">
+    <!-- Filter & Search Toolbar -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+        <input
+          type="search"
+          class="ss-input ss-input-with-icon"
+          placeholder="Search by vendor name, email, phone, or address..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+          aria-label="Search suppliers"
+        />
+      </div>
+
+      <div class="filter-metrics">
+        <span class="text-xs text-muted">
+          Showing <span class="font-mono font-semibold text-primary">{{ filteredSuppliers().length }}</span> of
+          <span class="font-mono font-semibold">{{ suppliers().length }}</span> registered vendor(s)
+        </span>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="ss-table-container">
+      <!-- Loading Skeleton -->
+      <div *ngIf="isLoading()" style="padding: 16px;">
+        <app-loading-skeleton *ngFor="let i of [1,2,3,4]" height="42px" extraClass="mb-2"></app-loading-skeleton>
+      </div>
+
+      <!-- Live Suppliers Table -->
+      <table *ngIf="!isLoading() && filteredSuppliers().length > 0" class="ss-table">
+        <thead>
+          <tr>
+            <th>Vendor Name</th>
+            <th>Email</th>
+            <th>Phone</th>
+            <th>Address</th>
+            <th class="ss-table-numeric">Supplied SKUs</th>
+            <th>Registered</th>
+            <th class="ss-table-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let s of filteredSuppliers()" class="table-row-hover">
+            <td>
+              <div class="vendor-cell" (click)="openDetailsModal(s)">
+                <span class="vendor-name text-primary font-semibold">{{ s.name }}</span>
+                <span class="vendor-id font-mono text-xs text-muted">ID: #{{ s.id }}</span>
+              </div>
+            </td>
+            <td>
+              <span class="text-sm font-mono text-secondary">{{ s.email || '—' }}</span>
+            </td>
+            <td>
+              <span class="text-sm font-mono text-secondary">{{ s.phone || '—' }}</span>
+            </td>
+            <td>
+              <span class="text-sm text-secondary address-cell" [title]="s.address || ''">
+                {{ s.address || '—' }}
+              </span>
+            </td>
+            <td class="ss-table-numeric">
+              <span
+                class="sku-badge font-mono"
+                [class.sku-badge-active]="s.productsCount > 0"
+                [title]="s.productsCount + ' product(s) linked to this vendor'"
+              >
+                {{ s.productsCount }} SKU{{ s.productsCount === 1 ? '' : 's' }}
+              </span>
+            </td>
+            <td>
+              <span class="text-xs text-muted font-mono">
+                {{ s.createdAt | date:'mediumDate' }}
+              </span>
+            </td>
+            <td class="ss-table-actions">
+              <div class="action-btn-group">
+                <button
+                  type="button"
+                  class="action-icon-btn"
+                  (click)="openDetailsModal(s)"
+                  title="View supplier details and supplied products"
+                  aria-label="View supplier details"
+                >
+                  <app-icon name="external-link" [size]="14"></app-icon>
+                </button>
+                <button
+                  type="button"
+                  class="action-icon-btn"
+                  (click)="openEditModal(s)"
+                  title="Edit supplier information"
+                  aria-label="Edit supplier"
+                >
+                  <app-icon name="settings" [size]="14"></app-icon>
+                </button>
+                <button
+                  type="button"
+                  class="action-icon-btn action-icon-btn-danger"
+                  (click)="openDeleteModal(s)"
+                  title="Delete supplier"
+                  aria-label="Delete supplier"
+                >
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading() && filteredSuppliers().length === 0" style="padding: 32px;">
+        <app-empty-state
+          icon="suppliers"
+          title="No suppliers found"
+          description="There are no registered suppliers matching your search filters."
+        ></app-empty-state>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- CREATE / EDIT SUPPLIER MODAL DRAWER                            -->
+<!-- ============================================================== -->
+<div *ngIf="isFormModalOpen()" class="modal-backdrop" (click)="closeFormModal()">
+  <div class="modal-card" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="modal-form-title">
+    <div class="modal-header">
+      <div class="modal-title-wrapper">
+        <h3 id="modal-form-title" class="modal-title">
+          {{ isEditing() ? 'Edit Supplier' : 'Register New Supplier' }}
+        </h3>
+        <p class="modal-subtitle">
+          {{ isEditing() ? 'Update vendor commercial contact information' : 'Add a vendor record to enable product and procurement mapping' }}
+        </p>
+      </div>
+      <button type="button" class="close-btn" (click)="closeFormModal()" aria-label="Close dialog">
+        <app-icon name="x" [size]="16"></app-icon>
+      </button>
+    </div>
+
+    <form [formGroup]="supplierForm" (ngSubmit)="onSubmitForm()" class="modal-body">
+      <!-- Error Message Banner -->
+      <div *ngIf="formErrorMessage()" class="form-error-banner" role="alert">
+        <app-icon name="alert-circle" [size]="16" extraClass="text-danger"></app-icon>
+        <span>{{ formErrorMessage() }}</span>
+      </div>
+
+      <div class="form-group">
+        <label for="supplier-name" class="form-label">
+          Supplier Name <span class="text-danger">*</span>
+        </label>
+        <input
+          id="supplier-name"
+          type="text"
+          class="ss-input"
+          formControlName="name"
+          placeholder="e.g. Acme Industrial Electronics"
+          maxlength="150"
+        />
+        <div *ngIf="supplierForm.get('name')?.invalid && supplierForm.get('name')?.touched" class="field-error">
+          Supplier name is required (max 150 characters).
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label for="supplier-email" class="form-label">Email Address</label>
+          <input
+            id="supplier-email"
+            type="email"
+            class="ss-input"
+            formControlName="email"
+            placeholder="orders@vendor.com"
+            maxlength="150"
+          />
+          <div *ngIf="supplierForm.get('email')?.invalid && supplierForm.get('email')?.touched" class="field-error">
+            Please enter a valid email format.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="supplier-phone" class="form-label">Phone Number</label>
+          <input
+            id="supplier-phone"
+            type="tel"
+            class="ss-input"
+            formControlName="phone"
+            placeholder="+91 98765 43210"
+            maxlength="20"
+          />
+          <div *ngIf="supplierForm.get('phone')?.invalid && supplierForm.get('phone')?.touched" class="field-error">
+            Phone cannot exceed 20 characters.
+          </div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label for="supplier-address" class="form-label">Facility / Billing Address</label>
+        <textarea
+          id="supplier-address"
+          class="ss-input textarea-input"
+          formControlName="address"
+          rows="3"
+          placeholder="Street address, city, state, postal code..."
+          maxlength="255"
+        ></textarea>
+        <div *ngIf="supplierForm.get('address')?.invalid && supplierForm.get('address')?.touched" class="field-error">
+          Address cannot exceed 255 characters.
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="ss-btn ss-btn-secondary" (click)="closeFormModal()">
+          Cancel
+        </button>
+        <button type="submit" class="ss-btn ss-btn-primary" [disabled]="isSubmitting()">
+          <span *ngIf="isSubmitting()">Saving...</span>
+          <span *ngIf="!isSubmitting()">{{ isEditing() ? 'Save Changes' : 'Register Supplier' }}</span>
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- SUPPLIER DETAILS MODAL (Product Relationship Inspection)       -->
+<!-- ============================================================== -->
+<div *ngIf="isDetailsModalOpen() && selectedSupplier() as supplier" class="modal-backdrop" (click)="closeDetailsModal()">
+  <div class="modal-card modal-card-lg" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="modal-details-title">
+    <div class="modal-header">
+      <div class="modal-title-wrapper">
+        <div class="title-row">
+          <h3 id="modal-details-title" class="modal-title">{{ supplier.name }}</h3>
+          <span class="modal-badge font-mono">Vendor #{{ supplier.id }}</span>
+        </div>
+        <p class="modal-subtitle">
+          Registered on {{ supplier.createdAt | date:'mediumDate' }}
+        </p>
+      </div>
+      <button type="button" class="close-btn" (click)="closeDetailsModal()" aria-label="Close dialog">
+        <app-icon name="x" [size]="16"></app-icon>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Contact Overview Info Grid -->
+      <div class="details-info-grid">
+        <div class="info-block">
+          <span class="info-label">Commercial Email</span>
+          <span class="info-value font-mono">{{ supplier.email || 'None registered' }}</span>
+        </div>
+        <div class="info-block">
+          <span class="info-label">Phone Contact</span>
+          <span class="info-value font-mono">{{ supplier.phone || 'None registered' }}</span>
+        </div>
+        <div class="info-block info-block-full">
+          <span class="info-label">Postal / Billing Address</span>
+          <span class="info-value">{{ supplier.address || 'None registered' }}</span>
+        </div>
+      </div>
+
+      <!-- Product Relationship Section -->
+      <div class="relationship-section">
+        <div class="relationship-header">
+          <h4 class="relationship-title">Supplied Catalog Products</h4>
+          <span class="count-tag font-mono">
+            {{ selectedSupplierProducts().length }} product{{ selectedSupplierProducts().length === 1 ? '' : 's' }}
+          </span>
+        </div>
+
+        <div *ngIf="selectedSupplierProducts().length > 0" class="ss-table-container">
+          <table class="ss-table">
+            <thead>
+              <tr>
+                <th>Product Name</th>
+                <th>SKU</th>
+                <th>Category</th>
+                <th class="ss-table-numeric">Cost Price</th>
+                <th class="ss-table-numeric">Selling Price</th>
+                <th>Reorder Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let p of selectedSupplierProducts()">
+                <td>
+                  <span class="font-medium text-primary">{{ p.name }}</span>
+                </td>
+                <td>
+                  <span class="font-mono text-xs text-muted">{{ p.sku }}</span>
+                </td>
+                <td>
+                  <span class="text-sm text-secondary">{{ p.categoryName || '—' }}</span>
+                </td>
+                <td class="ss-table-numeric font-mono">
+                  {{ p.costPrice != null ? (p.costPrice | currencyFormat) : '—' }}
+                </td>
+                <td class="ss-table-numeric font-mono font-medium">
+                  {{ p.price | currencyFormat }}
+                </td>
+                <td class="ss-table-numeric font-mono">
+                  {{ p.reorderLevel }} units
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div *ngIf="selectedSupplierProducts().length === 0" class="empty-products-box">
+          <app-icon name="products" [size]="24" extraClass="text-muted"></app-icon>
+          <span class="empty-products-text">No catalog products are currently assigned to this vendor.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="ss-btn ss-btn-secondary" (click)="closeDetailsModal()">
+        Close
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="closeDetailsModal(); openEditModal(supplier)">
+        <app-icon name="settings" [size]="14"></app-icon>
+        <span>Edit Supplier</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================== -->
+<!-- DELETE CONFIRMATION MODAL                                      -->
+<!-- ============================================================== -->
+<div *ngIf="isDeleteModalOpen() && supplierToDelete() as supplier" class="modal-backdrop" (click)="closeDeleteModal()">
+  <div class="modal-card modal-card-sm" (click)="$event.stopPropagation()" role="dialog" aria-labelledby="modal-delete-title">
+    <div class="modal-header">
+      <div class="modal-title-wrapper">
+        <h3 id="modal-delete-title" class="modal-title text-danger">Delete Supplier</h3>
+        <p class="modal-subtitle">Confirm vendor record removal</p>
+      </div>
+      <button type="button" class="close-btn" (click)="closeDeleteModal()" aria-label="Close dialog">
+        <app-icon name="x" [size]="16"></app-icon>
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <!-- Error Message Banner if FK violation occurs -->
+      <div *ngIf="deleteErrorMessage()" class="form-error-banner" role="alert">
+        <app-icon name="alert-triangle" [size]="18" extraClass="text-danger"></app-icon>
+        <span>{{ deleteErrorMessage() }}</span>
+      </div>
+
+      <p class="delete-prompt">
+        Are you sure you want to permanently delete supplier
+        <strong>"{{ supplier.name }}"</strong>?
+      </p>
+
+      <div *ngIf="supplier.productsCount > 0" class="dependency-warning">
+        <app-icon name="alert-triangle" [size]="16" extraClass="text-warning"></app-icon>
+        <div>
+          <strong>Foreign Key Constraint:</strong>
+          This supplier is actively linked to <strong>{{ supplier.productsCount }}</strong> catalog product(s).
+          Database integrity rules prevent deletion while products are assigned to this vendor.
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button type="button" class="ss-btn ss-btn-secondary" (click)="closeDeleteModal()">
+        Cancel
+      </button>
+      <button
+        type="button"
+        class="ss-btn ss-btn-danger"
+        (click)="confirmDelete()"
+        [disabled]="isDeleting() || supplier.productsCount > 0"
+      >
+        <span *ngIf="isDeleting()">Deleting...</span>
+        <span *ngIf="!isDeleting()">Delete Supplier</span>
+      </button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,533 @@
+<div class="dashboard-container">
+  <!-- 1. Header Section -->
+  <header class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Dashboard</h2>
+      <p class="page-subtitle">Real-time inventory overview, facility metrics, and operational activity</p>
+    </div>
+
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadDashboardData()"
+        [disabled]="isLoading()"
+        title="Refresh live metrics from backend"
+        aria-label="Refresh dashboard data"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+
+      <button
+        type="button"
+        class="ss-btn ss-btn-primary"
+        (click)="exportSummary()"
+        [disabled]="isLoading() || isExporting() || !data()"
+        title="Export operational & valuation summary to CSV"
+        aria-label="Export dashboard summary CSV"
+      >
+        <app-icon name="download" [size]="14"></app-icon>
+        <span>{{ isExporting() ? 'Exporting...' : 'Export Summary' }}</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Error State -->
+  <div *ngIf="hasError()" class="section-block">
+    <app-error-state
+      title="Unable to load inventory dashboard"
+      [description]="errorMessage()"
+      (retry)="loadDashboardData()"
+    ></app-error-state>
+  </div>
+
+  <ng-container *ngIf="!hasError()">
+    <!-- Partial Failure Alert Banner if any non-critical stream had an issue -->
+    <div *ngIf="data()?.partialErrors?.length" class="partial-error-banner" role="alert">
+      <app-icon name="alert-triangle" [size]="16" extraClass="text-warning"></app-icon>
+      <div class="partial-error-content">
+        <span class="font-medium">Partial Data Warning:</span>
+        Some background streams could not be fetched ({{ data()?.partialErrors?.join(', ') }}).
+        Displayed metrics use all available real data.
+      </div>
+    </div>
+
+    <!-- 2. KPI Section -->
+    <section class="kpi-grid" aria-label="Key Performance Indicators">
+      <!-- Loading Skeleton for KPIs -->
+      <ng-container *ngIf="isLoading()">
+        <div *ngFor="let i of [1, 2, 3, 4, 5]" class="ss-card kpi-skeleton-card">
+          <app-loading-skeleton width="60%" height="12px"></app-loading-skeleton>
+          <app-loading-skeleton width="80%" height="28px"></app-loading-skeleton>
+          <app-loading-skeleton width="45%" height="14px"></app-loading-skeleton>
+        </div>
+      </ng-container>
+
+      <!-- Rendered KPI Cards -->
+      <ng-container *ngIf="!isLoading() && data() as summary">
+        <app-kpi-card
+          label="Total Products"
+          [value]="summary.kpis.totalProducts | number"
+          icon="products"
+          [subtext]="summary.kpis.totalProductsDeltaMonth ? (summary.kpis.totalProductsDeltaMonth + ' added recently') : 'Catalog active'"
+          badgeText="Active SKUs"
+          badgeVariant="neutral"
+          [badgeShowDot]="false"
+        ></app-kpi-card>
+
+        <app-kpi-card
+          label="Total Inventory"
+          [value]="summary.kpis.totalInventoryUnits | number"
+          icon="inventory"
+          [subtext]="'Across ' + summary.kpis.totalLocationsCount + ' facilities'"
+          badgeText="Units on Hand"
+          badgeVariant="info"
+        ></app-kpi-card>
+
+        <app-kpi-card
+          label="Low Stock"
+          [value]="summary.kpis.lowStockItemsCount"
+          icon="alert-triangle"
+          subtext="Below reorder threshold"
+          badgeText="Reorder Needed"
+          badgeVariant="warning"
+          accent="warning"
+        ></app-kpi-card>
+
+        <app-kpi-card
+          label="Out of Stock"
+          [value]="summary.kpis.outOfStockItemsCount"
+          icon="x-circle"
+          subtext="Immediate restock required"
+          badgeText="Zero Inventory"
+          badgeVariant="danger"
+          accent="danger"
+        ></app-kpi-card>
+
+        <app-kpi-card
+          label="Inventory Value"
+          [value]="summary.kpis.totalInventoryValue | currencyFormat"
+          icon="dollar"
+          subtext="Valuation calculated at unit cost"
+          badgeText="Cost Basis"
+          badgeVariant="neutral"
+          [badgeShowDot]="false"
+        ></app-kpi-card>
+      </ng-container>
+    </section>
+
+    <!-- 3. Facility Overview Grid (NO fake capacity, real metrics only) -->
+    <section class="section-block" aria-label="Facility Inventory Overview">
+      <div class="ss-card">
+        <div class="ss-card-header">
+          <div>
+            <h3 class="ss-card-title">Facility Inventory Overview</h3>
+            <p class="ss-card-subtitle">Active distribution centers, warehouses, and store locations</p>
+          </div>
+          <a routerLink="/locations" class="ss-btn ss-btn-ghost ss-btn-sm" aria-label="Manage Locations">
+            <span>Manage Locations</span>
+            <app-icon name="arrow-right" [size]="12"></app-icon>
+          </a>
+        </div>
+
+        <div class="ss-card-body">
+          <div *ngIf="isLoading()" class="location-loading-grid">
+            <app-loading-skeleton *ngFor="let i of [1,2]" height="110px"></app-loading-skeleton>
+          </div>
+
+          <div *ngIf="!isLoading() && data() as summary" class="location-cards-grid">
+            <div *ngFor="let loc of summary.locationsOverview" class="location-summary-card">
+              <div class="loc-card-header">
+                <div class="loc-badge-wrapper">
+                  <span class="loc-code font-mono">{{ loc.code }}</span>
+                  <span class="loc-name">{{ loc.locationName }}</span>
+                </div>
+                <app-badge [variant]="getLocationStatusVariant(loc.status)" size="sm">
+                  {{ loc.status === 'OPTIMAL' ? 'Optimal Stock' : (loc.status === 'LOW_STOCK' ? 'Low Stock' : loc.status) }}
+                </app-badge>
+              </div>
+
+              <!-- Real facility metrics: Stock Units, Active SKUs, Inventory Valuation -->
+              <div class="loc-metrics">
+                <div class="loc-metric-item">
+                  <span class="loc-metric-label">Stock Units</span>
+                  <span class="loc-metric-val font-mono">{{ loc.totalUnits | number }}</span>
+                </div>
+                <div class="loc-metric-item">
+                  <span class="loc-metric-label">Active SKUs</span>
+                  <span class="loc-metric-val font-mono">{{ loc.totalSkus | number }}</span>
+                </div>
+                <div class="loc-metric-item">
+                  <span class="loc-metric-label">Valuation</span>
+                  <span class="loc-metric-val font-mono">{{ loc.totalValue | currencyFormat }}</span>
+                </div>
+              </div>
+
+              <div class="loc-card-footer">
+                <span class="loc-type-label">Facility Type:</span>
+                <span class="loc-type-val font-mono">{{ loc.type }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. Operational Split Grid: Stock Alerts (Left) & Recent Movements (Right) -->
+    <div class="tables-split-grid">
+      <!-- 4A. Stock Alerts Table -->
+      <section class="split-col" aria-label="Stock Alerts Table">
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <div class="title-with-badge">
+                <h3 class="ss-card-title">Stock Alerts</h3>
+                <span *ngIf="data()?.stockAlerts?.length" class="alert-count-pill font-mono">
+                  {{ data()?.stockAlerts?.length }}
+                </span>
+              </div>
+              <p class="ss-card-subtitle">Items requiring replenishment or purchase orders</p>
+            </div>
+            <a routerLink="/inventory" class="ss-btn ss-btn-ghost ss-btn-sm" aria-label="View all inventory">
+              <span>View Inventory</span>
+              <app-icon name="arrow-right" [size]="12"></app-icon>
+            </a>
+          </div>
+
+          <!-- Table Filter & Search Controls -->
+          <div class="table-toolbar">
+            <div class="toolbar-search">
+              <app-icon name="search" [size]="14" extraClass="toolbar-search-icon"></app-icon>
+              <input
+                type="text"
+                class="ss-input toolbar-input"
+                placeholder="Filter alerts by SKU or product..."
+                [ngModel]="alertSearch()"
+                (ngModelChange)="alertSearch.set($event)"
+                aria-label="Filter alerts"
+              />
+            </div>
+
+            <div class="toolbar-filter-tabs" role="tablist" aria-label="Alert filter tabs">
+              <button
+                type="button"
+                class="filter-tab"
+                [class.active]="alertStatusFilter() === 'ALL'"
+                (click)="alertStatusFilter.set('ALL')"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                class="filter-tab"
+                [class.active]="alertStatusFilter() === 'CRITICAL'"
+                (click)="alertStatusFilter.set('CRITICAL')"
+              >
+                Critical
+              </button>
+              <button
+                type="button"
+                class="filter-tab"
+                [class.active]="alertStatusFilter() === 'OUT_OF_STOCK'"
+                (click)="alertStatusFilter.set('OUT_OF_STOCK')"
+              >
+                Out of Stock
+              </button>
+            </div>
+          </div>
+
+          <!-- Table Content -->
+          <div class="ss-table-container">
+            <div *ngIf="isLoading()" style="padding: 16px;">
+              <app-loading-skeleton *ngFor="let i of [1,2,3]" height="38px" extraClass="mb-2"></app-loading-skeleton>
+            </div>
+
+            <table *ngIf="!isLoading() && filteredAlerts().length > 0" class="ss-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Facility</th>
+                  <th class="ss-table-numeric">Current</th>
+                  <th class="ss-table-numeric">Reorder</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let alert of filteredAlerts()">
+                  <td>
+                    <div class="product-cell">
+                      <span class="product-name">{{ alert.productName }}</span>
+                      <span class="product-sku font-mono">{{ alert.sku }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="text-secondary text-sm">{{ alert.locationName }}</span>
+                  </td>
+                  <td class="ss-table-numeric">
+                    <span
+                      class="font-mono font-semibold"
+                      [class.text-danger]="alert.currentStock === 0"
+                    >
+                      {{ alert.currentStock }}
+                    </span>
+                  </td>
+                  <td class="ss-table-numeric font-mono text-muted">
+                    {{ alert.reorderLevel }}
+                  </td>
+                  <td>
+                    <app-badge [variant]="getAlertBadgeVariant(alert.status)" size="sm">
+                      {{ getAlertStatusLabel(alert.status) }}
+                    </app-badge>
+                  </td>
+                  <td>
+                    <a
+                      routerLink="/orders"
+                      class="ss-btn ss-btn-secondary ss-btn-sm"
+                      title="Create purchase/replenishment order"
+                    >
+                      <app-icon name="plus" [size]="12"></app-icon>
+                      <span>Reorder</span>
+                    </a>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Empty State for filtered alerts -->
+            <div *ngIf="!isLoading() && filteredAlerts().length === 0" style="padding: 24px;">
+              <app-empty-state
+                icon="check-circle"
+                title="No stock alerts"
+                description="All inventory levels are currently above reorder thresholds for this filter."
+              ></app-empty-state>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4B. Recent Stock Activity Table -->
+      <section class="split-col" aria-label="Recent Stock Activity">
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Recent Stock Activity</h3>
+              <p class="ss-card-subtitle">Real-time receipts, sales, and inventory adjustments</p>
+            </div>
+            <a routerLink="/movements" class="ss-btn ss-btn-ghost ss-btn-sm" aria-label="View audit log">
+              <span>Audit Log</span>
+              <app-icon name="arrow-right" [size]="12"></app-icon>
+            </a>
+          </div>
+
+          <!-- Movement Type Filter Toolbar -->
+          <div class="table-toolbar">
+            <span class="toolbar-label">Activity Type:</span>
+            <div class="toolbar-filter-tabs" role="tablist" aria-label="Movement type filter">
+              <button
+                type="button"
+                class="filter-tab"
+                [class.active]="movementTypeFilter() === 'ALL'"
+                (click)="movementTypeFilter.set('ALL')"
+              >
+                All
+              </button>
+              <button
+                type="button"
+                class="filter-tab"
+                [class.active]="movementTypeFilter() === 'SALE'"
+                (click)="movementTypeFilter.set('SALE')"
+              >
+                Sale
+              </button>
+              <button
+                type="button"
+                class="filter-tab"
+                [class.active]="movementTypeFilter() === 'ADJUSTMENT'"
+                (click)="movementTypeFilter.set('ADJUSTMENT')"
+              >
+                Adj
+              </button>
+              <button
+                type="button"
+                class="filter-tab"
+                [class.active]="movementTypeFilter() === 'STOCK_IN'"
+                (click)="movementTypeFilter.set('STOCK_IN')"
+              >
+                In
+              </button>
+            </div>
+          </div>
+
+          <!-- Activity Table -->
+          <div class="ss-table-container">
+            <div *ngIf="isLoading()" style="padding: 16px;">
+              <app-loading-skeleton *ngFor="let i of [1,2,3,4,5]" height="38px" extraClass="mb-2"></app-loading-skeleton>
+            </div>
+
+            <table *ngIf="!isLoading() && filteredMovements().length > 0" class="ss-table">
+              <thead>
+                <tr>
+                  <th>Timestamp</th>
+                  <th>Product</th>
+                  <th>Type</th>
+                  <th class="ss-table-numeric">Qty</th>
+                  <th>Facility</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let m of filteredMovements()">
+                  <td>
+                    <span class="text-xs text-muted font-mono" [title]="m.timestamp">
+                      {{ m.timestamp | date:'short' }}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="product-cell">
+                      <span class="product-name">{{ m.productName }}</span>
+                      <span class="product-sku font-mono">{{ m.sku }}</span>
+                    </div>
+                  </td>
+                  <td>
+                    <app-badge [variant]="getMovementBadgeVariant(m.type)" size="sm">
+                      {{ m.type }}
+                    </app-badge>
+                  </td>
+                  <td class="ss-table-numeric">
+                    <span
+                      class="font-mono font-semibold"
+                      [class.text-success]="m.type === 'STOCK_IN' || m.type === 'PURCHASE' || (m.type === 'ADJUSTMENT' && m.quantity > 0)"
+                      [class.text-danger]="m.type === 'SALE' || m.type === 'STOCK_OUT' || (m.type === 'ADJUSTMENT' && m.quantity < 0)"
+                    >
+                      {{ getMovementQuantityPrefix(m.type) }}{{ m.quantity }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="text-sm text-secondary">{{ m.locationName }}</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            <!-- Empty State for filtered movements -->
+            <div *ngIf="!isLoading() && filteredMovements().length === 0" style="padding: 24px;">
+              <app-empty-state
+                icon="clock"
+                title="No movement events"
+                description="No recent stock transactions match this activity filter."
+              ></app-empty-state>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 5. Recent Orders Section (Section 12 requirement) -->
+    <section class="section-block" aria-label="Recent Orders">
+      <div class="ss-card">
+        <div class="ss-card-header">
+          <div>
+            <h3 class="ss-card-title">Recent Orders</h3>
+            <p class="ss-card-subtitle">Latest recorded sales dispatches and purchase replenishment orders</p>
+          </div>
+          <a routerLink="/orders" class="ss-btn ss-btn-ghost ss-btn-sm" aria-label="View all orders">
+            <span>View All Orders</span>
+            <app-icon name="arrow-right" [size]="12"></app-icon>
+          </a>
+        </div>
+
+        <!-- Order Status Filter Toolbar -->
+        <div class="table-toolbar">
+          <span class="toolbar-label">Order Status:</span>
+          <div class="toolbar-filter-tabs" role="tablist" aria-label="Order status filter">
+            <button
+              type="button"
+              class="filter-tab"
+              [class.active]="orderStatusFilter() === 'ALL'"
+              (click)="orderStatusFilter.set('ALL')"
+            >
+              All
+            </button>
+            <button
+              type="button"
+              class="filter-tab"
+              [class.active]="orderStatusFilter() === 'COMPLETED'"
+              (click)="orderStatusFilter.set('COMPLETED')"
+            >
+              Completed
+            </button>
+            <button
+              type="button"
+              class="filter-tab"
+              [class.active]="orderStatusFilter() === 'PENDING'"
+              (click)="orderStatusFilter.set('PENDING')"
+            >
+              Pending
+            </button>
+          </div>
+        </div>
+
+        <div class="ss-table-container">
+          <div *ngIf="isLoading()" style="padding: 16px;">
+            <app-loading-skeleton *ngFor="let i of [1,2,3]" height="38px" extraClass="mb-2"></app-loading-skeleton>
+          </div>
+
+          <table *ngIf="!isLoading() && filteredOrders().length > 0" class="ss-table">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Customer / Reference</th>
+                <th>Fulfillment Facility</th>
+                <th class="ss-table-numeric">Total Amount</th>
+                <th>Status</th>
+                <th>Date</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let order of filteredOrders()">
+                <td>
+                  <span class="font-mono font-medium text-primary">{{ order.orderNumber }}</span>
+                </td>
+                <td>
+                  <span class="text-sm font-medium">{{ order.customerName || '—' }}</span>
+                </td>
+                <td>
+                  <span class="text-sm text-secondary">{{ order.locationName || 'Unassigned' }}</span>
+                </td>
+                <td class="ss-table-numeric font-mono font-semibold">
+                  {{ order.totalAmount | currencyFormat }}
+                </td>
+                <td>
+                  <app-badge [variant]="getOrderStatusVariant(order.status)" size="sm">
+                    {{ order.status }}
+                  </app-badge>
+                </td>
+                <td>
+                  <span class="text-xs text-muted font-mono">
+                    {{ (order.orderDate || order.createdAt) | date:'mediumDate' }}
+                  </span>
+                </td>
+                <td>
+                  <a routerLink="/orders" class="ss-btn ss-btn-ghost ss-btn-sm" title="View in orders">
+                    <span>Details</span>
+                    <app-icon name="arrow-right" [size]="12"></app-icon>
+                  </a>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div *ngIf="!isLoading() && filteredOrders().length === 0" style="padding: 24px;">
+            <app-empty-state
+              icon="orders"
+              title="No recent orders"
+              description="No orders currently match the selected filter."
+            ></app-empty-state>
+          </div>
+        </div>
+      </div>
+    </section>
+  </ng-container>
+</div>

@@ -1,0 +1,26 @@
+<div class="app-layout">
+  <!-- Top Navbar spans full width or sits adjacent -->
+  <app-navbar class="app-navbar-container"></app-navbar>
+
+  <div class="app-body">
+    <!-- Sidebar -->
+    <div
+      class="sidebar-wrapper"
+      [class.mobile-open]="layoutService.isSidebarOpenMobile()"
+    >
+      <app-sidebar></app-sidebar>
+    </div>
+
+    <!-- Backdrop for mobile drawer -->
+    <div
+      *ngIf="layoutService.isSidebarOpenMobile()"
+      class="mobile-backdrop"
+      (click)="layoutService.closeSidebarMobile()"
+    ></div>
+
+    <!-- Main Content Container with Router Outlet -->
+    <main class="app-main-content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>

@@ -1,0 +1,544 @@
+<div class="feature-page-container">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="alert-success-box" style="margin-bottom: 2px;">
+    <app-icon name="check-circle" [size]="16"></app-icon>
+    <span class="font-medium">{{ toastMessage() }}</span>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Inter-Facility Stock Transfers</h2>
+      <p class="page-subtitle">Relocate inventory between warehouses, stores, and fulfillment hubs with dual-movement audit trails</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadAllData()"
+        [disabled]="isLoading()"
+        title="Refresh transfers ledger from database"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="openCreateModal()">
+        <app-icon name="arrow-right" [size]="14"></app-icon>
+        <span>Initiate Transfer</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Metrics Grid -->
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-blue">
+        <app-icon name="arrow-right" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Total Transfers</span>
+        <span class="kpi-value font-mono">{{ totalTransfersCount() }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-emerald">
+        <app-icon name="boxes" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Units Relocated</span>
+        <span class="kpi-value font-mono">{{ totalUnitsTransferred() | number }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-purple">
+        <app-icon name="warehouse" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Active Facilities</span>
+        <span class="kpi-value font-mono">{{ activeFacilitiesCount() }}</span>
+      </div>
+    </div>
+
+    <div class="kpi-card">
+      <div class="kpi-icon-wrap kpi-amber">
+        <app-icon name="check-circle" [size]="20"></app-icon>
+      </div>
+      <div class="kpi-info">
+        <span class="kpi-label">Completed Transfers</span>
+        <span class="kpi-value font-mono">{{ completedTransfersCount() }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search & Filter Card -->
+  <div class="ss-card">
+    <div class="filter-bar">
+      <!-- Search Input -->
+      <div class="search-box">
+        <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          class="ss-input ss-input-with-icon"
+          placeholder="Filter by transfer #, product, SKU, facility, or remarks..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+
+      <!-- Filters Group -->
+      <div class="filter-controls">
+        <!-- Status Filter -->
+        <select
+          class="ss-select"
+          [ngModel]="statusFilter()"
+          (ngModelChange)="statusFilter.set($event)"
+        >
+          <option value="ALL">All Statuses</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+
+        <!-- Source Location Filter -->
+        <select
+          class="ss-select"
+          [ngModel]="sourceFilter()"
+          (ngModelChange)="sourceFilter.set($event)"
+        >
+          <option value="ALL">All Origins</option>
+          <option *ngFor="let loc of locations()" [value]="loc.id">
+            From: {{ loc.name }}
+          </option>
+        </select>
+
+        <!-- Destination Location Filter -->
+        <select
+          class="ss-select"
+          [ngModel]="destinationFilter()"
+          (ngModelChange)="destinationFilter.set($event)"
+        >
+          <option value="ALL">All Destinations</option>
+          <option *ngFor="let loc of locations()" [value]="loc.id">
+            To: {{ loc.name }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Table Container -->
+    <div class="ss-table-container">
+      <!-- Loading Skeleton -->
+      <div *ngIf="isLoading()" style="padding: 16px;">
+        <app-loading-skeleton *ngFor="let i of [1, 2, 3, 4, 5]" height="38px" extraClass="table-skeleton-row"></app-loading-skeleton>
+      </div>
+
+      <!-- Error State -->
+      <div *ngIf="!isLoading() && hasError()" style="padding: 32px;">
+        <app-error-state
+          title="Unable to load stock transfers"
+          [description]="errorMessage()"
+          [showRetry]="true"
+          (retry)="loadAllData()"
+        ></app-error-state>
+      </div>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading() && !hasError() && filteredTransfers().length === 0" style="padding: 48px 16px;">
+        <app-empty-state
+          title="No stock transfers found"
+          description="Initiate an inter-facility transfer to relocate stock or adjust your search filter."
+          actionText="Initiate Transfer"
+          (actionClicked)="openCreateModal()"
+        ></app-empty-state>
+      </div>
+
+      <!-- Loaded Data Table -->
+      <table *ngIf="!isLoading() && !hasError() && filteredTransfers().length > 0" class="ss-table">
+        <thead>
+          <tr>
+            <th>Transfer #</th>
+            <th>Date & Time</th>
+            <th>Product & SKU</th>
+            <th>Origin (From)</th>
+            <th>Destination (To)</th>
+            <th class="ss-table-numeric">Quantity</th>
+            <th>Status</th>
+            <th style="text-align: right;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let trf of filteredTransfers()" class="interactive-row" (click)="openDetailsModal(trf)">
+            <td class="font-mono font-semibold text-primary">
+              {{ trf.transferNumber }}
+            </td>
+            <td>
+              <span class="text-sm text-muted font-mono">{{ trf.transferDate | date:'mediumDate' }}</span>
+            </td>
+            <td>
+              <div class="product-cell">
+                <span class="font-semibold text-primary">{{ trf.productName }}</span>
+                <span class="text-xs text-muted font-mono">{{ trf.productSku }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="facility-badge">
+                <app-icon name="warehouse" [size]="13" [color]="'var(--color-slate-500)'"></app-icon>
+                <span>{{ trf.sourceLocationName }}</span>
+              </div>
+            </td>
+            <td>
+              <div class="facility-badge">
+                <app-icon name="arrow-right" [size]="12" [color]="'var(--color-primary-600)'"></app-icon>
+                <span>{{ trf.destinationLocationName }}</span>
+              </div>
+            </td>
+            <td class="ss-table-numeric font-mono font-bold">
+              {{ trf.quantity | number }}
+            </td>
+            <td>
+              <app-badge [label]="trf.status" [variant]="getStatusVariant(trf.status)"></app-badge>
+            </td>
+            <td style="text-align: right;" (click)="$event.stopPropagation()">
+              <div class="row-actions">
+                <span *ngIf="trf.status === 'COMPLETED'" class="immutable-pill" title="Immutable inventory ledger record">
+                  <app-icon name="check-circle" [size]="12" [color]="'var(--color-success-solid, #059669)'"></app-icon>
+                  <span>Immutable</span>
+                </span>
+                <button
+                  type="button"
+                  class="action-btn"
+                  title="View Transfer Details & Inventory Impact"
+                  (click)="openDetailsModal(trf)"
+                >
+                  <app-icon name="chevron-right" [size]="15"></app-icon>
+                </button>
+                <button
+                  *ngIf="trf.status !== 'COMPLETED'"
+                  type="button"
+                  class="action-btn text-danger"
+                  title="Delete Draft / Cancelled Transfer"
+                  (click)="deleteTransfer(trf, $event)"
+                >
+                  <app-icon name="x" [size]="14"></app-icon>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Create Transfer Modal -->
+  <div *ngIf="isCreateModalOpen()" class="modal-backdrop" (click)="closeCreateModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Initiate Inter-Facility Stock Transfer</h3>
+          <span class="modal-subtitle">Relocate verified on-hand stock atomically between facilities</span>
+        </div>
+        <button type="button" class="modal-close-btn" (click)="closeCreateModal()">
+          <app-icon name="x" [size]="16"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <div *ngIf="modalError()" class="alert-danger-box">
+          <app-icon name="alert-triangle" [size]="16"></app-icon>
+          <span>{{ modalError() }}</span>
+        </div>
+
+        <form [formGroup]="transferForm">
+          <!-- Top Row: Transfer Number & Date -->
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Transfer # <span class="text-danger">*</span></label>
+              <input
+                type="text"
+                class="ss-input font-mono"
+                formControlName="transferNumber"
+                placeholder="e.g. TRF-2026-001"
+                [class.input-error]="transferForm.get('transferNumber')?.invalid && transferForm.get('transferNumber')?.touched"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Transfer Date & Time <span class="text-danger">*</span></label>
+              <input
+                type="datetime-local"
+                class="ss-input"
+                formControlName="transferDate"
+              />
+            </div>
+          </div>
+
+          <!-- Product Selection -->
+          <div class="form-group" style="margin-top: 12px;">
+            <label class="form-label">Product to Relocate <span class="text-danger">*</span></label>
+            <select
+              class="ss-select"
+              formControlName="productId"
+              [class.input-error]="transferForm.get('productId')?.invalid && transferForm.get('productId')?.touched"
+            >
+              <option [ngValue]="null" disabled>Select Product...</option>
+              <option *ngFor="let p of products()" [value]="p.id">
+                {{ p.sku }} — {{ p.name }}
+              </option>
+            </select>
+          </div>
+
+          <!-- Locations Row -->
+          <div class="form-row" style="margin-top: 12px;">
+            <div class="form-group">
+              <label class="form-label">Origin Facility (Source) <span class="text-danger">*</span></label>
+              <select
+                class="ss-select"
+                formControlName="sourceLocationId"
+                [class.input-error]="transferForm.get('sourceLocationId')?.invalid && transferForm.get('sourceLocationId')?.touched"
+              >
+                <option [ngValue]="null" disabled>Select Source Facility...</option>
+                <option *ngFor="let loc of locations()" [value]="loc.id">
+                  {{ loc.name }} ({{ loc.locationType || 'WAREHOUSE' }})
+                </option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Destination Facility <span class="text-danger">*</span></label>
+              <select
+                class="ss-select"
+                formControlName="destinationLocationId"
+                [class.input-error]="transferForm.get('destinationLocationId')?.invalid && transferForm.get('destinationLocationId')?.touched"
+              >
+                <option [ngValue]="null" disabled>Select Destination Facility...</option>
+                <option *ngFor="let loc of locations()" [value]="loc.id">
+                  {{ loc.name }} ({{ loc.locationType || 'WAREHOUSE' }})
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Live Stock Inspection Box -->
+          <div
+            *ngIf="transferForm.get('productId')?.value && transferForm.get('sourceLocationId')?.value"
+            class="stock-inspection-panel"
+            style="margin-top: 14px;"
+          >
+            <div class="inspection-col">
+              <span class="inspection-title">Source Stock ({{ getLocationName(transferForm.get('sourceLocationId')?.value) }}):</span>
+              <div class="inspection-badges">
+                <span class="stock-pill">Current: <strong>{{ getSourceInventory().quantity }}</strong></span>
+                <span class="stock-pill">Reserved: <strong>{{ getSourceInventory().reservedQuantity }}</strong></span>
+                <span class="stock-pill pill-available">Available: <strong>{{ getSourceInventory().available }}</strong></span>
+              </div>
+            </div>
+
+            <div class="inspection-col" *ngIf="transferForm.get('destinationLocationId')?.value">
+              <span class="inspection-title">Destination Stock ({{ getLocationName(transferForm.get('destinationLocationId')?.value) }}):</span>
+              <div class="inspection-badges">
+                <span class="stock-pill">Current: <strong>{{ getDestinationInventory() }}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quantity and Remarks -->
+          <div class="form-row" style="margin-top: 12px;">
+            <div class="form-group">
+              <label class="form-label">Transfer Quantity <span class="text-danger">*</span></label>
+              <input
+                type="number"
+                min="1"
+                [max]="getSourceInventory().available"
+                class="ss-input font-mono"
+                formControlName="quantity"
+                placeholder="Qty"
+                [class.input-error]="transferForm.get('quantity')?.invalid && transferForm.get('quantity')?.touched"
+              />
+              <span class="form-hint" *ngIf="getSourceInventory().available > 0">
+                Max available for transfer: <strong>{{ getSourceInventory().available }}</strong> units
+              </span>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Transfer Remarks / Reason</label>
+              <input
+                type="text"
+                class="ss-input"
+                formControlName="remarks"
+                placeholder="e.g. Replenishment dispatch or rebalance"
+              />
+            </div>
+          </div>
+
+          <!-- Live Transfer Impact Preview Box -->
+          <div
+            *ngIf="transferForm.get('productId')?.value && transferForm.get('sourceLocationId')?.value && transferForm.get('destinationLocationId')?.value"
+            class="transfer-preview-card"
+            style="margin-top: 16px;"
+          >
+            <div class="preview-header">
+              <app-icon name="arrow-right" [size]="15" [color]="'var(--color-primary-600)'"></app-icon>
+              <span class="preview-title">Atomic Inventory Balance Impact</span>
+            </div>
+
+            <div class="preview-journey-grid">
+              <!-- Source Impact -->
+              <div class="journey-node">
+                <div class="node-label text-danger">Origin Facility (Deduction)</div>
+                <div class="node-facility">{{ getLocationName(transferForm.get('sourceLocationId')?.value) }}</div>
+                <div class="node-calculation font-mono">
+                  <span>{{ getSourceInventory().quantity }}</span>
+                  <span class="text-danger"> - {{ transferForm.get('quantity')?.value || 0 }}</span>
+                  <span>=&gt;</span>
+                  <strong>{{ getSourceInventory().quantity - (transferForm.get('quantity')?.value || 0) }}</strong>
+                </div>
+              </div>
+
+              <!-- Destination Impact -->
+              <div class="journey-node">
+                <div class="node-label text-success">Destination Facility (Increment)</div>
+                <div class="node-facility">{{ getLocationName(transferForm.get('destinationLocationId')?.value) }}</div>
+                <div class="node-calculation font-mono">
+                  <span>{{ getDestinationInventory() }}</span>
+                  <span class="text-success"> + {{ transferForm.get('quantity')?.value || 0 }}</span>
+                  <span>=&gt;</span>
+                  <strong>{{ getDestinationInventory() + (transferForm.get('quantity')?.value || 0) }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="ss-btn ss-btn-secondary"
+          (click)="closeCreateModal()"
+          [disabled]="isSubmitting()"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="ss-btn ss-btn-primary"
+          (click)="submitTransfer()"
+          [disabled]="isSubmitting() || transferForm.invalid"
+        >
+          <app-icon *ngIf="!isSubmitting()" name="arrow-right" [size]="14"></app-icon>
+          <span *ngIf="!isSubmitting()">Execute Stock Transfer</span>
+          <span *ngIf="isSubmitting()">Relocating Stock...</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transfer Details Modal -->
+  <div *ngIf="isDetailsModalOpen() && selectedTransfer()" class="modal-backdrop" (click)="closeDetailsModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h3 class="modal-title font-mono">{{ selectedTransfer()?.transferNumber }}</h3>
+            <app-badge
+              [label]="selectedTransfer()?.status || 'COMPLETED'"
+              [variant]="getStatusVariant(selectedTransfer()?.status || '')"
+            ></app-badge>
+          </div>
+          <span class="modal-subtitle">
+            Executed on {{ selectedTransfer()?.transferDate | date:'medium' }}
+          </span>
+        </div>
+        <button type="button" class="modal-close-btn" (click)="closeDetailsModal()">
+          <app-icon name="x" [size]="16"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Immutability Notice -->
+        <div *ngIf="selectedTransfer()?.status === 'COMPLETED'" class="alert-info-box">
+          <app-icon name="check-circle" [size]="15" [color]="'var(--color-primary-600)'"></app-icon>
+          <span>
+            <strong>Finalized &amp; Immutable:</strong> This transfer has updated inventory balances in both source and destination facilities, with dual audit entries logged in the movement ledger.
+          </span>
+        </div>
+
+        <!-- Metadata Section -->
+        <div class="detail-section">
+          <div class="detail-row">
+            <span class="detail-label">Product Relocated:</span>
+            <strong class="detail-value font-mono">
+              {{ selectedTransfer()?.productSku }} — {{ selectedTransfer()?.productName }}
+            </strong>
+          </div>
+          <div class="detail-row">
+            <span class="detail-label">Quantity Transferred:</span>
+            <strong class="detail-value font-mono" style="font-size: 1rem; color: var(--color-primary-700);">
+              {{ selectedTransfer()?.quantity | number }} units
+            </strong>
+          </div>
+          <div class="detail-row" *ngIf="selectedTransfer()?.remarks">
+            <span class="detail-label">Remarks:</span>
+            <span class="detail-value">{{ selectedTransfer()?.remarks }}</span>
+          </div>
+        </div>
+
+        <!-- Facility Relocation Summary Cards -->
+        <div style="margin-top: 14px;">
+          <h4 class="items-title" style="margin-bottom: 8px;">Facility Ledger Impact</h4>
+          <div class="impact-cards-grid">
+            <div class="impact-card card-source">
+              <div class="card-tag tag-deduct">Source Facility</div>
+              <div class="card-facility-name">{{ selectedTransfer()?.sourceLocationName }}</div>
+              <div class="card-delta-tag text-danger">-{{ selectedTransfer()?.quantity }} units deducted</div>
+              <div class="card-ref font-mono">Ledger Ref: {{ selectedTransfer()?.transferNumber }}</div>
+            </div>
+
+            <div class="impact-card card-dest">
+              <div class="card-tag tag-credit">Destination Facility</div>
+              <div class="card-facility-name">{{ selectedTransfer()?.destinationLocationName }}</div>
+              <div class="card-delta-tag text-success">+{{ selectedTransfer()?.quantity }} units incremented</div>
+              <div class="card-ref font-mono">Ledger Ref: {{ selectedTransfer()?.transferNumber }}</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Inventory Impact Table -->
+        <div style="margin-top: 16px;">
+          <h4 class="items-title" style="margin-bottom: 8px;">Inventory Impact</h4>
+          <table class="ss-table" style="font-size: 0.8125rem;">
+            <thead>
+              <tr>
+                <th>Facility</th>
+                <th>Role</th>
+                <th class="ss-table-numeric">Change</th>
+                <th class="ss-table-numeric">Movement Ledger Reference</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="font-semibold">{{ selectedTransfer()?.sourceLocationName }}</td>
+                <td><span class="text-xs text-muted font-mono">SOURCE</span></td>
+                <td class="ss-table-numeric font-mono font-bold text-danger">-{{ selectedTransfer()?.quantity | number }}</td>
+                <td class="ss-table-numeric font-mono text-muted">{{ selectedTransfer()?.transferNumber }}</td>
+              </tr>
+              <tr>
+                <td class="font-semibold">{{ selectedTransfer()?.destinationLocationName }}</td>
+                <td><span class="text-xs text-muted font-mono">DESTINATION</span></td>
+                <td class="ss-table-numeric font-mono font-bold text-success">+{{ selectedTransfer()?.quantity | number }}</td>
+                <td class="ss-table-numeric font-mono text-muted">{{ selectedTransfer()?.transferNumber }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="ss-btn ss-btn-secondary" (click)="closeDetailsModal()">
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

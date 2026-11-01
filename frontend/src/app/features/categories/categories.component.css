@@ -1,0 +1,157 @@
+:host {
+  display: block;
+}
+
+/* KPI Summary Cards Grid */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.kpi-skeleton-card {
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Filter Bar */
+.filter-bar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background-color: var(--color-slate-50);
+  flex-wrap: wrap;
+}
+
+.search-box {
+  flex: 1;
+  max-width: 380px;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-slate-400);
+  pointer-events: none;
+}
+
+.filter-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Category Table Specifics */
+.category-name-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.category-icon-tag {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-xs);
+  background-color: var(--color-slate-100);
+  border: 1px solid var(--border-subtle);
+  color: var(--color-primary-600);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.category-title {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.category-desc {
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.row-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-delete:hover {
+  color: var(--color-danger-solid);
+  border-color: var(--color-danger-border);
+  background-color: var(--color-danger-bg);
+}
+
+.table-skeleton-row {
+  margin-bottom: 8px;
+}
+
+/* Blocked Delete Banner */
+.delete-blocked-banner {
+  padding: 14px 16px;
+  background-color: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.delete-blocked-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+}
+
+.delete-blocked-message {
+  font-size: 0.8125rem;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.45;
+}
+
+.delete-blocked-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.delete-warning-text {
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.delete-sub-text {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+.btn-confirm-delete {
+  background-color: var(--color-danger-solid);
+  border-color: var(--color-danger-solid);
+}
+
+.btn-confirm-delete:hover:not(:disabled) {
+  background-color: #dc2626;
+  border-color: #dc2626;
+}

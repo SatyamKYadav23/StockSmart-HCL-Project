@@ -1,0 +1,464 @@
+<div class="feature-page-container">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="ss-toast">
+    <div class="toast-content">
+      <app-icon name="check-circle" [size]="16" [color]="'var(--color-success-solid)'"></app-icon>
+      <span class="toast-text">{{ toastMessage() }}</span>
+    </div>
+    <button type="button" class="toast-close" (click)="toastMessage.set(null)" aria-label="Close notification">
+      <app-icon name="x" [size]="14"></app-icon>
+    </button>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Products Directory</h2>
+      <p class="page-subtitle">Catalog management, SKU master records, and unit pricing</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadInitialData()"
+        [disabled]="isLoading()"
+        title="Refresh data from server"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="openAddModal()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>Add Product</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search & Category Filter Toolbar -->
+  <div class="ss-card">
+    <div class="filter-bar">
+      <div class="search-box">
+        <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          class="ss-input ss-input-with-icon"
+          placeholder="Search by SKU, product name, or category..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+
+      <div class="filter-controls">
+        <select
+          class="ss-select"
+          [ngModel]="selectedCategoryId()"
+          (ngModelChange)="onCategorySelect($event)"
+        >
+          <option value="ALL">All Categories</option>
+          <option *ngFor="let cat of categories()" [value]="cat.id">
+            {{ cat.name }}
+          </option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="hasError()" style="padding: 24px;">
+      <app-error-state
+        title="Unable to load products"
+        [description]="errorMessage()"
+        [showRetry]="true"
+        (retry)="loadProducts()"
+      ></app-error-state>
+    </div>
+
+    <!-- Table Container -->
+    <div *ngIf="!hasError()" class="ss-table-container">
+      <!-- Loading Skeletons -->
+      <div *ngIf="isLoading()" style="padding: 16px;">
+        <app-loading-skeleton *ngFor="let i of [1, 2, 3, 4, 5]" height="38px" extraClass="table-skeleton-row"></app-loading-skeleton>
+      </div>
+
+      <!-- Loaded Data Table -->
+      <table *ngIf="!isLoading() && filteredProducts().length > 0" class="ss-table">
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Product Name</th>
+            <th>Category</th>
+            <th class="ss-table-numeric">Cost Price</th>
+            <th class="ss-table-numeric">Unit Price</th>
+            <th class="ss-table-numeric">Reorder Level</th>
+            <th>Barcode</th>
+            <th>Status</th>
+            <th style="text-align: right; min-width: 140px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let p of filteredProducts()">
+            <td class="font-mono font-medium text-primary">{{ p.sku }}</td>
+            <td>
+              <div class="name-cell">
+                <span class="product-title">{{ p.name }}</span>
+                <span *ngIf="p.supplierName" class="product-supplier text-xs text-muted">
+                  {{ p.supplierName }}
+                </span>
+              </div>
+            </td>
+            <td>
+              <span class="category-pill">{{ p.categoryName || 'Unassigned' }}</span>
+            </td>
+            <td class="ss-table-numeric font-mono text-muted">
+              {{ p.costPrice !== null ? (p.costPrice | currencyFormat) : '—' }}
+            </td>
+            <td class="ss-table-numeric font-mono font-semibold">
+              {{ p.price | currencyFormat }}
+            </td>
+            <td class="ss-table-numeric font-mono text-muted">
+              {{ p.reorderLevel }}
+            </td>
+            <td>
+              <span *ngIf="p.barcode" class="barcode-badge font-mono">{{ p.barcode }}</span>
+              <span *ngIf="!p.barcode" class="text-xs text-muted">—</span>
+            </td>
+            <td>
+              <app-badge [variant]="p.active ? 'success' : 'neutral'" size="sm">
+                {{ p.active ? 'Active' : 'Inactive' }}
+              </app-badge>
+            </td>
+            <td style="text-align: right;">
+              <div class="row-actions">
+                <button
+                  type="button"
+                  class="ss-btn ss-btn-secondary ss-btn-sm"
+                  (click)="openEditModal(p)"
+                  title="Edit product details"
+                >
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  class="ss-btn ss-btn-outline ss-btn-sm btn-delete"
+                  (click)="openDeleteModal(p)"
+                  title="Delete product"
+                >
+                  <span>Delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading() && filteredProducts().length === 0" style="padding: 32px;">
+        <app-empty-state
+          icon="products"
+          title="No products found"
+          description="There are no products matching your current search or category filter."
+          actionLabel="Add New Product"
+          actionIcon="plus"
+          (actionClicked)="openAddModal()"
+        ></app-empty-state>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       ADD / EDIT PRODUCT MODAL
+       ========================================================================= -->
+  <div *ngIf="isFormModalOpen()" class="modal-backdrop" (click)="closeFormModal()">
+    <div class="modal-container" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">{{ isEditMode() ? 'Edit Product' : 'Add Product' }}</h3>
+          <p class="modal-subtitle">
+            {{ isEditMode() ? 'Update existing product master record' : 'Register a new SKU in the inventory catalog' }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="modal-close-btn"
+          (click)="closeFormModal()"
+          [disabled]="isSubmitting()"
+          aria-label="Close dialog"
+        >
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <form [formGroup]="productForm" (ngSubmit)="onSubmitForm()">
+        <div class="modal-body">
+          <!-- Form Server Error Notice -->
+          <div *ngIf="formErrorMessage()" class="form-error-banner">
+            <app-icon name="alert-triangle" [size]="16" [color]="'var(--color-danger-solid)'"></app-icon>
+            <span>{{ formErrorMessage() }}</span>
+          </div>
+
+          <!-- Product Name -->
+          <div class="form-group">
+            <label class="form-label" for="prod-name">
+              Product Name <span class="required">*</span>
+            </label>
+            <input
+              id="prod-name"
+              type="text"
+              class="ss-input"
+              formControlName="name"
+              placeholder="e.g. Ergonomic Office Desk"
+              [class.input-error]="productForm.get('name')?.touched && productForm.get('name')?.invalid"
+            />
+            <span
+              *ngIf="productForm.get('name')?.touched && productForm.get('name')?.hasError('required')"
+              class="field-error-text"
+            >
+              Product name is required.
+            </span>
+            <span
+              *ngIf="productForm.get('name')?.touched && productForm.get('name')?.hasError('maxlength')"
+              class="field-error-text"
+            >
+              Maximum 150 characters.
+            </span>
+          </div>
+
+          <!-- SKU & Barcode -->
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="form-label" for="prod-sku">
+                SKU <span class="required">*</span>
+              </label>
+              <input
+                id="prod-sku"
+                type="text"
+                class="ss-input font-mono"
+                formControlName="sku"
+                placeholder="e.g. DSK-ERG-001"
+                [class.input-error]="productForm.get('sku')?.touched && productForm.get('sku')?.invalid"
+              />
+              <span
+                *ngIf="productForm.get('sku')?.touched && productForm.get('sku')?.hasError('required')"
+                class="field-error-text"
+              >
+                SKU is required.
+              </span>
+            </div>
+
+            <div class="form-group flex-1">
+              <label class="form-label" for="prod-barcode">
+                Barcode
+              </label>
+              <input
+                id="prod-barcode"
+                type="text"
+                class="ss-input font-mono"
+                formControlName="barcode"
+                placeholder="e.g. 8901234567890"
+              />
+            </div>
+          </div>
+
+          <!-- Category & Supplier -->
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="form-label" for="prod-cat">
+                Category <span class="required">*</span>
+              </label>
+              <select
+                id="prod-cat"
+                class="ss-select select-full"
+                formControlName="categoryId"
+                [class.input-error]="productForm.get('categoryId')?.touched && productForm.get('categoryId')?.invalid"
+              >
+                <option [ngValue]="null" disabled>Select category...</option>
+                <option *ngFor="let cat of categories()" [value]="cat.id">
+                  {{ cat.name }}
+                </option>
+              </select>
+              <div *ngIf="categories().length === 0" class="empty-category-notice" style="display: flex; flex-direction: column; align-items: flex-start; gap: 4px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <app-icon name="alert-triangle" [size]="13" [color]="'var(--color-warning-solid)'"></app-icon>
+                  <span>No categories found. Create one first:</span>
+                </div>
+                <button
+                  type="button"
+                  class="ss-btn ss-btn-outline ss-btn-sm quick-category-btn"
+                  (click)="quickCreateCategory('General Merchandise')"
+                  [disabled]="isSubmitting()"
+                >
+                  <app-icon name="plus" [size]="12"></app-icon>
+                  <span>+ Quick Create "General Merchandise"</span>
+                </button>
+              </div>
+              <span
+                *ngIf="productForm.get('categoryId')?.touched && productForm.get('categoryId')?.hasError('required')"
+                class="field-error-text"
+              >
+                Category is required.
+              </span>
+            </div>
+
+            <div class="form-group flex-1">
+              <label class="form-label" for="prod-sup">
+                Supplier
+              </label>
+              <select
+                id="prod-sup"
+                class="ss-select select-full"
+                formControlName="supplierId"
+              >
+                <option [ngValue]="null">None / Unassigned</option>
+                <option *ngFor="let sup of suppliers()" [value]="sup.id">
+                  {{ sup.name }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Cost Price & Selling Price -->
+          <div class="form-row">
+            <div class="form-group flex-1">
+              <label class="form-label" for="prod-cost">
+                Cost Price ($)
+              </label>
+              <input
+                id="prod-cost"
+                type="number"
+                step="0.01"
+                min="0"
+                class="ss-input font-mono"
+                formControlName="costPrice"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div class="form-group flex-1">
+              <label class="form-label" for="prod-price">
+                Selling Price ($) <span class="required">*</span>
+              </label>
+              <input
+                id="prod-price"
+                type="number"
+                step="0.01"
+                min="0"
+                class="ss-input font-mono"
+                formControlName="price"
+                placeholder="0.00"
+                [class.input-error]="productForm.get('price')?.touched && productForm.get('price')?.invalid"
+              />
+              <span
+                *ngIf="productForm.get('price')?.touched && productForm.get('price')?.hasError('required')"
+                class="field-error-text"
+              >
+                Selling price is required.
+              </span>
+              <span
+                *ngIf="productForm.get('price')?.touched && productForm.get('price')?.hasError('min')"
+                class="field-error-text"
+              >
+                Price cannot be negative.
+              </span>
+            </div>
+          </div>
+
+          <!-- Reorder Level -->
+          <div class="form-group">
+            <label class="form-label" for="prod-reorder">
+              Reorder Point (Threshold)
+            </label>
+            <input
+              id="prod-reorder"
+              type="number"
+              min="0"
+              class="ss-input font-mono"
+              formControlName="reorderLevel"
+              placeholder="0"
+              style="max-width: 180px;"
+            />
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label class="form-label" for="prod-desc">
+              Description
+            </label>
+            <textarea
+              id="prod-desc"
+              rows="3"
+              class="ss-input"
+              formControlName="description"
+              placeholder="Detailed product specifications..."
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="ss-btn ss-btn-secondary"
+            (click)="closeFormModal()"
+            [disabled]="isSubmitting()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="ss-btn ss-btn-primary"
+            [disabled]="isSubmitting()"
+          >
+            <app-icon *ngIf="!isSubmitting()" name="check-circle" [size]="14"></app-icon>
+            <span>{{ isSubmitting() ? 'Saving...' : (isEditMode() ? 'Save Changes' : 'Add Product') }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       DELETE CONFIRMATION MODAL
+       ========================================================================= -->
+  <div *ngIf="isDeleteModalOpen()" class="modal-backdrop" (click)="closeDeleteModal()">
+    <div class="modal-container modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Delete Product?</h3>
+        <button
+          type="button"
+          class="modal-close-btn"
+          (click)="closeDeleteModal()"
+          [disabled]="isDeleting()"
+          aria-label="Close dialog"
+        >
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <p class="delete-warning-text">
+          Are you sure you want to delete product <strong>"{{ productToDelete()?.name }}"</strong> (SKU: <code>{{ productToDelete()?.sku }}</code>)?
+        </p>
+        <p class="delete-sub-text">
+          This action cannot be undone. Any linked records may be affected.
+        </p>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="ss-btn ss-btn-secondary"
+          (click)="closeDeleteModal()"
+          [disabled]="isDeleting()"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="ss-btn ss-btn-primary btn-confirm-delete"
+          (click)="confirmDelete()"
+          [disabled]="isDeleting()"
+        >
+          <span>{{ isDeleting() ? 'Deleting...' : 'Delete' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,216 @@
+<div class="feature-page-container">
+  <!-- Toast Notification -->
+  <div *ngIf="toastMessage()" class="ss-toast">
+    <div class="toast-content">
+      <app-icon name="check-circle" [size]="16" [color]="'var(--color-success-solid)'"></app-icon>
+      <span class="toast-text">{{ toastMessage() }}</span>
+    </div>
+    <button type="button" class="toast-close" (click)="toastMessage.set(null)" aria-label="Close notification">
+      <app-icon name="x" [size]="14"></app-icon>
+    </button>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Warehouse & Store Locations</h2>
+      <p class="page-subtitle">Multi-facility storage nodes, regional distribution centers, and stores</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadData()"
+        [disabled]="isLoading()"
+        title="Refresh data from server"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="openAddModal()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>Add Facility</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Search Filter Card -->
+  <div class="ss-card">
+    <div class="filter-bar">
+      <div class="search-box">
+        <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          class="ss-input ss-input-with-icon"
+          placeholder="Search facilities by name, type, or address..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="hasError()" style="padding: 24px;">
+      <app-error-state
+        title="Unable to load facilities"
+        [description]="errorMessage()"
+        [showRetry]="true"
+        (retry)="loadData()"
+      ></app-error-state>
+    </div>
+
+    <!-- Table Container -->
+    <div *ngIf="!hasError()" class="ss-table-container">
+      <!-- Loading Skeleton -->
+      <div *ngIf="isLoading()" style="padding: 16px;">
+        <app-loading-skeleton *ngFor="let i of [1, 2, 3, 4]" height="38px" extraClass="table-skeleton-row"></app-loading-skeleton>
+      </div>
+
+      <!-- Loaded Data Table -->
+      <table *ngIf="!isLoading() && filteredLocations().length > 0" class="ss-table">
+        <thead>
+          <tr>
+            <th style="width: 70px;">ID</th>
+            <th>Facility Name</th>
+            <th>Type</th>
+            <th>Address</th>
+            <th class="ss-table-numeric">Total SKUs</th>
+            <th class="ss-table-numeric">Stock Units</th>
+            <th>Registered</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let loc of filteredLocations()">
+            <td class="font-mono text-muted">#{{ loc.id }}</td>
+            <td>
+              <div class="facility-cell">
+                <span class="facility-name">{{ loc.name }}</span>
+              </div>
+            </td>
+            <td>
+              <app-badge variant="info" size="sm">{{ loc.locationType }}</app-badge>
+            </td>
+            <td>
+              <span class="text-sm text-secondary">{{ loc.address || '—' }}</span>
+            </td>
+            <td class="ss-table-numeric font-mono font-medium">
+              {{ loc.totalSkus | number }}
+            </td>
+            <td class="ss-table-numeric font-mono font-semibold text-primary">
+              {{ loc.totalUnits | number }}
+            </td>
+            <td>
+              <span class="text-xs text-muted font-mono">{{ loc.createdAt | date:'mediumDate' }}</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading() && filteredLocations().length === 0" style="padding: 32px;">
+        <app-empty-state
+          icon="locations"
+          title="No facilities found"
+          description="There are no locations matching your search criteria."
+          actionLabel="Add Facility"
+          actionIcon="plus"
+          (actionClicked)="openAddModal()"
+        ></app-empty-state>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADD FACILITY MODAL -->
+  <div *ngIf="isAddModalOpen()" class="modal-backdrop" (click)="closeAddModal()">
+    <div class="modal-container modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">Add Facility</h3>
+          <p class="modal-subtitle">Register a new warehouse, distribution center, or retail store</p>
+        </div>
+        <button
+          type="button"
+          class="modal-close-btn"
+          (click)="closeAddModal()"
+          [disabled]="isSubmitting()"
+          aria-label="Close dialog"
+        >
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <form [formGroup]="locationForm" (ngSubmit)="onSubmitLocation()">
+        <div class="modal-body">
+          <div *ngIf="formErrorMessage()" class="form-error-banner">
+            <app-icon name="alert-triangle" [size]="16" [color]="'var(--color-danger-solid)'"></app-icon>
+            <span>{{ formErrorMessage() }}</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loc-name">
+              Facility Name <span class="required">*</span>
+            </label>
+            <input
+              id="loc-name"
+              type="text"
+              class="ss-input"
+              formControlName="name"
+              placeholder="e.g. West Coast Regional DC"
+              [class.input-error]="locationForm.get('name')?.touched && locationForm.get('name')?.invalid"
+            />
+            <span
+              *ngIf="locationForm.get('name')?.touched && locationForm.get('name')?.hasError('required')"
+              class="field-error-text"
+            >
+              Facility name is required.
+            </span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loc-type">
+              Facility Type <span class="required">*</span>
+            </label>
+            <select id="loc-type" class="ss-select select-full" formControlName="locationType">
+              <option value="WAREHOUSE">Warehouse</option>
+              <option value="DISTRIBUTION_CENTER">Distribution Center</option>
+              <option value="RETAIL_STORE">Retail Store</option>
+              <option value="OUTLET">Outlet</option>
+            </select>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="loc-address">
+              Address / City
+            </label>
+            <input
+              id="loc-address"
+              type="text"
+              class="ss-input"
+              formControlName="address"
+              placeholder="e.g. 100 Logistics Way, Reno, NV"
+            />
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="ss-btn ss-btn-secondary"
+            (click)="closeAddModal()"
+            [disabled]="isSubmitting()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="ss-btn ss-btn-primary"
+            [disabled]="isSubmitting() || locationForm.invalid"
+          >
+            <app-icon *ngIf="!isSubmitting()" name="check-circle" [size]="14"></app-icon>
+            <span>{{ isSubmitting() ? 'Saving...' : 'Add Facility' }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

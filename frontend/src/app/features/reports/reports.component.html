@@ -1,0 +1,1268 @@
+<div class="feature-page-container">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <div class="title-with-badge">
+        <h2 class="page-title">Reports & Analytics</h2>
+        <span class="system-tag">Enterprise Module</span>
+      </div>
+      <p class="page-subtitle">Real-time inventory valuation, stock movements audit, order reconciliation, and facility analytics</p>
+    </div>
+    <div class="header-actions">
+      <button type="button" class="ss-btn ss-btn-secondary" (click)="loadActiveReport()" [disabled]="isLoading()">
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="exportCurrentReport()" [disabled]="isLoading() || isExporting()">
+        <app-icon name="download" [size]="14"></app-icon>
+        <span>{{ isExporting() ? 'Exporting...' : 'Export Filtered CSV' }}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Report Category Navigation Tabs -->
+  <div class="report-nav-tabs" role="tablist">
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'inventory-overview'"
+      (click)="selectTab('inventory-overview')"
+    >
+      <app-icon name="boxes" [size]="15"></app-icon>
+      <span>Inventory Overview</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'stock-status'"
+      (click)="selectTab('stock-status')"
+    >
+      <app-icon name="alert-triangle" [size]="15"></app-icon>
+      <span>Stock Status</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'inventory-valuation'"
+      (click)="selectTab('inventory-valuation')"
+    >
+      <app-icon name="dollar" [size]="15"></app-icon>
+      <span>Inventory Valuation</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'stock-movement'"
+      (click)="selectTab('stock-movement')"
+    >
+      <app-icon name="movements" [size]="15"></app-icon>
+      <span>Stock Movements</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'order-summary'"
+      (click)="selectTab('order-summary')"
+    >
+      <app-icon name="orders" [size]="15"></app-icon>
+      <span>Order Summary</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'purchase-receiving'"
+      (click)="selectTab('purchase-receiving')"
+    >
+      <app-icon name="suppliers" [size]="15"></app-icon>
+      <span>Purchase Receiving</span>
+    </button>
+    <button
+      type="button"
+      role="tab"
+      class="nav-tab-btn"
+      [class.active]="activeTab() === 'stock-transfers'"
+      (click)="selectTab('stock-transfers')"
+    >
+      <app-icon name="movements" [size]="15"></app-icon>
+      <span>Stock Transfers</span>
+    </button>
+  </div>
+
+  <!-- Filter & Parameter Toolbar -->
+  <div class="report-filter-card ss-card">
+    <div class="filter-row">
+      <!-- Date Presets (For Historical/Transactional Tabs) -->
+      @if (isHistoricalTab()) {
+        <div class="filter-group date-preset-group">
+          <label class="filter-label">Time Window</label>
+          <div class="preset-pill-group">
+            <button type="button" class="preset-pill" [class.active]="datePreset() === 'all'" (click)="setDatePreset('all')">All Time</button>
+            <button type="button" class="preset-pill" [class.active]="datePreset() === 'today'" (click)="setDatePreset('today')">Today</button>
+            <button type="button" class="preset-pill" [class.active]="datePreset() === 'last7'" (click)="setDatePreset('last7')">7D</button>
+            <button type="button" class="preset-pill" [class.active]="datePreset() === 'last30'" (click)="setDatePreset('last30')">30D</button>
+            <button type="button" class="preset-pill" [class.active]="datePreset() === 'thisMonth'" (click)="setDatePreset('thisMonth')">This Month</button>
+            <button type="button" class="preset-pill" [class.active]="datePreset() === 'custom'" (click)="setDatePreset('custom')">Custom</button>
+          </div>
+        </div>
+
+        @if (datePreset() === 'custom') {
+          <div class="filter-group">
+            <label class="filter-label">From Date</label>
+            <input
+              type="date"
+              class="filter-input"
+              [ngModel]="customStartDate()"
+              (ngModelChange)="customStartDate.set($event); onFilterChange()"
+            />
+          </div>
+          <div class="filter-group">
+            <label class="filter-label">To Date</label>
+            <input
+              type="date"
+              class="filter-input"
+              [ngModel]="customEndDate()"
+              (ngModelChange)="customEndDate.set($event); onFilterChange()"
+            />
+          </div>
+        }
+      } @else {
+        <!-- Current-state snapshot pill -->
+        <div class="snapshot-notice">
+          <app-icon name="clock" [size]="14"></app-icon>
+          <span><strong>Current-State Snapshot:</strong> Reflects real-time inventory balances on hand.</span>
+        </div>
+      }
+
+      <!-- Facility Filter (For all tabs where applicable) -->
+      <div class="filter-group">
+        <label class="filter-label">{{ activeTab() === 'stock-transfers' ? 'Source Facility' : 'Facility' }}</label>
+        <select
+          class="filter-select"
+          [ngModel]="selectedLocationId()"
+          (ngModelChange)="selectedLocationId.set($event); onFilterChange()"
+        >
+          <option [ngValue]="null">All Facilities</option>
+          @for (loc of locations(); track loc.id) {
+            <option [ngValue]="loc.id">{{ loc.name }}</option>
+          }
+        </select>
+      </div>
+
+      <!-- Category Filter (For Stock Status and Valuation) -->
+      @if (activeTab() === 'stock-status' || activeTab() === 'inventory-valuation') {
+        <div class="filter-group">
+          <label class="filter-label">Category</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedCategoryId()"
+            (ngModelChange)="selectedCategoryId.set($event); onFilterChange()"
+          >
+            <option [ngValue]="null">All Categories</option>
+            @for (cat of categories(); track cat.id) {
+              <option [ngValue]="cat.id">{{ cat.name }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <!-- Product Filter (For Stock Status, Movements, Transfers) -->
+      @if (activeTab() === 'stock-status' || activeTab() === 'stock-movement' || activeTab() === 'stock-transfers') {
+        <div class="filter-group">
+          <label class="filter-label">Product</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedProductId()"
+            (ngModelChange)="selectedProductId.set($event); onFilterChange()"
+          >
+            <option [ngValue]="null">All Products</option>
+            @for (p of products(); track p.id) {
+              <option [ngValue]="p.id">{{ p.name }} ({{ p.sku }})</option>
+            }
+          </select>
+        </div>
+      }
+
+      <!-- Supplier Filter (For Purchase Receiving) -->
+      @if (activeTab() === 'purchase-receiving') {
+        <div class="filter-group">
+          <label class="filter-label">Supplier</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedSupplierId()"
+            (ngModelChange)="selectedSupplierId.set($event); onFilterChange()"
+          >
+            <option [ngValue]="null">All Suppliers</option>
+            @for (s of suppliers(); track s.id) {
+              <option [ngValue]="s.id">{{ s.name }}</option>
+            }
+          </select>
+        </div>
+      }
+
+      <!-- Status Filter (For Stock Status, Orders, Receiving, Transfers) -->
+      @if (activeTab() === 'stock-status') {
+        <div class="filter-group">
+          <label class="filter-label">Stock Status</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedStatus()"
+            (ngModelChange)="selectedStatus.set($event); onFilterChange()"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="IN_STOCK">In Stock</option>
+            <option value="LOW_STOCK">Low Stock (≤ Reorder)</option>
+            <option value="OUT_OF_STOCK">Out of Stock (Zero)</option>
+            <option value="NOT_STOCKED">Not Initialized</option>
+          </select>
+        </div>
+      }
+
+      @if (activeTab() === 'order-summary') {
+        <div class="filter-group">
+          <label class="filter-label">Order Status</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedStatus()"
+            (ngModelChange)="selectedStatus.set($event); onFilterChange()"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="COMPLETED">Completed (Fulfilled)</option>
+            <option value="PENDING">Pending</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+      }
+
+      @if (activeTab() === 'purchase-receiving') {
+        <div class="filter-group">
+          <label class="filter-label">Receipt Status</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedStatus()"
+            (ngModelChange)="selectedStatus.set($event); onFilterChange()"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="RECEIVED">Received</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+      }
+
+      @if (activeTab() === 'stock-transfers') {
+        <div class="filter-group">
+          <label class="filter-label">Transfer Status</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedStatus()"
+            (ngModelChange)="selectedStatus.set($event); onFilterChange()"
+          >
+            <option value="ALL">All Statuses</option>
+            <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
+          </select>
+        </div>
+      }
+
+      <!-- Movement Type Filter (For Stock Movements) -->
+      @if (activeTab() === 'stock-movement') {
+        <div class="filter-group">
+          <label class="filter-label">Movement Type</label>
+          <select
+            class="filter-select"
+            [ngModel]="selectedMovementType()"
+            (ngModelChange)="selectedMovementType.set($event); onFilterChange()"
+          >
+            <option value="ALL">All Types</option>
+            <option value="RECEIPT">Purchase Receipt (Inflow)</option>
+            <option value="SALE">Order Sale (Outflow)</option>
+            <option value="TRANSFER">Inter-Facility Transfer</option>
+            <option value="ADJUSTMENT">Manual Adjustment</option>
+          </select>
+        </div>
+
+        <div class="filter-group">
+          <label class="filter-label">Reference Search</label>
+          <input
+            type="text"
+            class="filter-input"
+            placeholder="Search ref or remarks..."
+            [ngModel]="movementReferenceSearch()"
+            (ngModelChange)="movementReferenceSearch.set($event); onFilterChange()"
+          />
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  @if (isLoading()) {
+    <div class="loading-container">
+      <app-loading-skeleton height="48px"></app-loading-skeleton>
+      <app-loading-skeleton height="180px"></app-loading-skeleton>
+      <app-loading-skeleton height="260px"></app-loading-skeleton>
+    </div>
+  }
+
+  <!-- Error State -->
+  @if (!isLoading() && hasError()) {
+    <app-error-state
+      [title]="'Report Generation Failed'"
+      [description]="errorMessage()"
+      (retry)="loadActiveReport()"
+    ></app-error-state>
+  }
+
+  <!-- Data Display: 7 Reports -->
+  @if (!isLoading() && !hasError()) {
+
+    <!-- ========================================== -->
+    <!-- 1. INVENTORY OVERVIEW REPORT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'inventory-overview') {
+      @if (inventoryOverview(); as overview) {
+        <!-- KPI Cards -->
+        <div class="report-kpi-grid">
+          <app-kpi-card
+            label="Total Active Products"
+            [value]="overview.totalActiveProducts.toString()"
+            icon="boxes"
+            subtext="Catalog items enabled for operations"
+            badgeText="Catalog"
+            badgeVariant="info"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Units on Hand"
+            [value]="(overview.totalUnitsOnHand | number) || '0'"
+            icon="layers"
+            subtext="Physical on-hand inventory count"
+            badgeText="Physical"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Available Stock"
+            [value]="(overview.totalAvailableUnits | number) || '0'"
+            icon="check-circle"
+            subtext="Calculated: Units on Hand - Reserved"
+            [badgeText]="physicalStockBreakdown().availablePct + '% Avail'"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Reserved Units"
+            [value]="(overview.totalReservedUnits | number) || '0'"
+            icon="clock"
+            subtext="Committed to pending allocations"
+            [badgeText]="physicalStockBreakdown().reservedPct + '% Resv'"
+            badgeVariant="warning"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Total Valuation"
+            [value]="overview.totalValuation | currencyFormat"
+            icon="dollar"
+            subtext="Cost basis: quantity × costPrice"
+            badgeText="Asset"
+            badgeVariant="success"
+          ></app-kpi-card>
+        </div>
+
+        <!-- Facility Inventory Summary Table -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Facility-Level Inventory Summary</h3>
+              <p class="ss-card-subtitle">Real-time breakdown of stocked products, physical quantities, reserved units, and asset valuation</p>
+            </div>
+            <div class="header-tag-pill">
+              <span>{{ overview.facilitySummaries.length }} Facilities</span>
+            </div>
+          </div>
+
+          <div class="ss-table-container">
+            <table class="ss-table">
+              <thead>
+                <tr>
+                  <th>Facility</th>
+                  <th>Facility Type</th>
+                  <th class="ss-table-numeric">Products Stocked</th>
+                  <th class="ss-table-numeric">Units on Hand</th>
+                  <th class="ss-table-numeric">Reserved</th>
+                  <th class="ss-table-numeric">Available Units</th>
+                  <th class="ss-table-numeric">Valuation (INR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (fac of overview.facilitySummaries; track fac.locationId) {
+                  <tr>
+                    <td>
+                      <div class="facility-name-cell">
+                        <app-icon name="locations" [size]="13" class="icon-muted"></app-icon>
+                        <span class="font-semibold text-primary">{{ fac.locationName }}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <app-badge variant="neutral" size="sm">{{ fac.locationType }}</app-badge>
+                    </td>
+                    <td class="ss-table-numeric font-mono">{{ fac.productsStocked }}</td>
+                    <td class="ss-table-numeric font-mono font-medium">{{ fac.unitsOnHand | number }}</td>
+                    <td class="ss-table-numeric font-mono text-muted">{{ fac.reservedUnits | number }}</td>
+                    <td class="ss-table-numeric font-mono font-semibold" [class.text-success]="fac.availableUnits > 0" [class.text-danger]="fac.availableUnits <= 0">
+                      {{ fac.availableUnits | number }}
+                    </td>
+                    <td class="ss-table-numeric font-mono font-semibold text-primary">
+                      {{ fac.valuation | currencyFormat }}
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+      }
+    }
+
+    <!-- ========================================== -->
+    <!-- 2. STOCK STATUS REPORT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'stock-status') {
+      @if (stockStatus(); as statusData) {
+        <!-- KPI Cards -->
+        <div class="report-kpi-grid">
+          <app-kpi-card
+            label="Total Monitored Items"
+            [value]="statusData.totalItems.toString()"
+            icon="boxes"
+            subtext="Products tracked across facility inventory"
+            badgeText="Monitored"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="In Stock"
+            [value]="statusData.inStockCount.toString()"
+            icon="check-circle"
+            subtext="Stock level > Reorder threshold"
+            badgeText="Optimal"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Low Stock"
+            [value]="statusData.lowStockCount.toString()"
+            icon="alert-circle"
+            subtext="Stock level ≤ Reorder threshold"
+            badgeText="Replenish"
+            badgeVariant="warning"
+            accent="warning"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Out of Stock"
+            [value]="statusData.outOfStockCount.toString()"
+            icon="x-circle"
+            subtext="Stock is zero or negative"
+            badgeText="Critical"
+            badgeVariant="danger"
+            accent="danger"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Uninitialized"
+            [value]="statusData.uninitializedCount.toString()"
+            icon="alert-circle"
+            subtext="Catalog items not yet stocked at facility"
+            badgeText="Not Stocked"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+        </div>
+
+        <!-- Stock Health Distribution Gauge -->
+        <div class="ss-card chart-card">
+          <div class="chart-header">
+            <h4 class="chart-title">Catalog Stock Health Distribution</h4>
+            <div class="chart-legend">
+              <span class="legend-item"><span class="legend-dot in-stock"></span> In Stock ({{ stockStatusBreakdown().inStockPct }}%)</span>
+              <span class="legend-item"><span class="legend-dot low-stock"></span> Low Stock ({{ stockStatusBreakdown().lowStockPct }}%)</span>
+              <span class="legend-item"><span class="legend-dot oos"></span> Out of Stock ({{ stockStatusBreakdown().oosPct }}%)</span>
+            </div>
+          </div>
+          <div class="health-progress-bar">
+            <div class="bar-segment in-stock" [style.width.%]="stockStatusBreakdown().inStockPct" title="In Stock"></div>
+            <div class="bar-segment low-stock" [style.width.%]="stockStatusBreakdown().lowStockPct" title="Low Stock"></div>
+            <div class="bar-segment oos" [style.width.%]="stockStatusBreakdown().oosPct" title="Out of Stock"></div>
+          </div>
+        </div>
+
+        <!-- Stock Status Table -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Stock Status Audit</h3>
+              <p class="ss-card-subtitle">Real-time stock balance compared with reorder levels across facilities</p>
+            </div>
+            <div class="header-tag-pill">
+              <span>{{ statusData.items.length }} Records</span>
+            </div>
+          </div>
+
+          @if (statusData.items.length === 0) {
+            <app-empty-state
+              title="No Products Match Status Filter"
+              message="No inventory records were found matching the selected facility, category, or status parameters."
+            ></app-empty-state>
+          } @else {
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Facility</th>
+                    <th class="ss-table-numeric">On Hand</th>
+                    <th class="ss-table-numeric">Reserved</th>
+                    <th class="ss-table-numeric">Available</th>
+                    <th class="ss-table-numeric">Reorder Level</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of statusData.items; track (item.productId + '-' + item.locationId)) {
+                    <tr>
+                      <td class="font-mono text-muted">{{ item.sku }}</td>
+                      <td><span class="font-semibold text-primary">{{ item.productName }}</span></td>
+                      <td>{{ item.categoryName }}</td>
+                      <td>{{ item.locationName }}</td>
+                      <td class="ss-table-numeric font-mono font-medium">{{ item.onHand | number }}</td>
+                      <td class="ss-table-numeric font-mono text-muted">{{ item.reserved | number }}</td>
+                      <td class="ss-table-numeric font-mono font-semibold" [class.text-danger]="item.available <= 0">
+                        {{ item.available | number }}
+                      </td>
+                      <td class="ss-table-numeric font-mono text-muted">{{ item.reorderLevel }}</td>
+                      <td>
+                        <app-badge [variant]="getStatusBadgeVariant(item.status)" size="sm">
+                          {{ item.status.replace('_', ' ') }}
+                        </app-badge>
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ========================================== -->
+    <!-- 3. INVENTORY VALUATION REPORT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'inventory-valuation') {
+      @if (inventoryValuation(); as valData) {
+        <!-- KPI Cards -->
+        <div class="report-kpi-grid">
+          <app-kpi-card
+            label="Total Inventory Valuation"
+            [value]="valData.totalValuation | currencyFormat"
+            icon="dollar"
+            subtext="Calculated using: quantity × costPrice"
+            badgeText="Cost Basis"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Total Units on Hand"
+            [value]="(valData.totalUnitsOnHand | number) || '0'"
+            icon="layers"
+            subtext="Physical inventory stock in facilities"
+            badgeText="Physical"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Products with Missing Cost"
+            [value]="valData.productsWithMissingCost.toString()"
+            icon="alert-circle"
+            subtext="Products lacking cost basis in catalog"
+            [badgeText]="valData.productsWithMissingCost > 0 ? 'Review Cost' : 'Audited'"
+            [badgeVariant]="valData.productsWithMissingCost > 0 ? 'warning' : 'success'"
+            [accent]="valData.productsWithMissingCost > 0 ? 'warning' : undefined"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Facilities Valued"
+            [value]="valData.facilityBreakdown.length.toString()"
+            icon="locations"
+            subtext="Active warehouse & store locations"
+            badgeText="Locations"
+            badgeVariant="info"
+          ></app-kpi-card>
+        </div>
+
+        <!-- Facility Valuation Summary Table -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Facility Valuation Breakdown</h3>
+              <p class="ss-card-subtitle">Aggregate asset valuation by facility location</p>
+            </div>
+          </div>
+
+          <div class="ss-table-container">
+            <table class="ss-table">
+              <thead>
+                <tr>
+                  <th>Facility</th>
+                  <th class="ss-table-numeric">Units on Hand</th>
+                  <th class="ss-table-numeric">Valuation (INR)</th>
+                  <th class="ss-table-numeric">Missing Cost Items</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (fac of valData.facilityBreakdown; track fac.locationId) {
+                  <tr>
+                    <td><span class="font-semibold text-primary">{{ fac.locationName }}</span></td>
+                    <td class="ss-table-numeric font-mono font-medium">{{ fac.totalUnits | number }}</td>
+                    <td class="ss-table-numeric font-mono font-semibold text-primary">{{ fac.valuation | currencyFormat }}</td>
+                    <td class="ss-table-numeric font-mono">
+                      @if (fac.missingCostCount > 0) {
+                        <span class="text-warning font-semibold">{{ fac.missingCostCount }} missing</span>
+                      } @else {
+                        <span class="text-muted">None</span>
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Product Level Valuation Table -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Product Valuation Audit</h3>
+              <p class="ss-card-subtitle">Itemized valuation computed strictly from product cost basis (selling price is never used as fallback)</p>
+            </div>
+            <div class="header-tag-pill">
+              <span>{{ valData.items.length }} Items</span>
+            </div>
+          </div>
+
+          @if (valData.items.length === 0) {
+            <app-empty-state
+              title="No Valuation Data Available"
+              message="No inventory records found for valuation calculation."
+            ></app-empty-state>
+          } @else {
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>SKU</th>
+                    <th>Product</th>
+                    <th>Category</th>
+                    <th>Facility</th>
+                    <th class="ss-table-numeric">Units on Hand</th>
+                    <th class="ss-table-numeric">Cost Price (INR)</th>
+                    <th class="ss-table-numeric">Total Valuation (INR)</th>
+                    <th>Cost Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (item of valData.items; track (item.productId + '-' + item.locationId)) {
+                    <tr>
+                      <td class="font-mono text-muted">{{ item.sku }}</td>
+                      <td><span class="font-semibold text-primary">{{ item.productName }}</span></td>
+                      <td>{{ item.categoryName }}</td>
+                      <td>{{ item.locationName }}</td>
+                      <td class="ss-table-numeric font-mono font-medium">{{ item.quantity | number }}</td>
+                      <td class="ss-table-numeric font-mono">
+                        @if (item.costPrice != null) {
+                          {{ item.costPrice | currencyFormat }}
+                        } @else {
+                          <span class="text-muted italic">Not Set</span>
+                        }
+                      </td>
+                      <td class="ss-table-numeric font-mono font-semibold text-primary">
+                        {{ item.valuation | currencyFormat }}
+                      </td>
+                      <td>
+                        @if (item.missingCost) {
+                          <app-badge variant="warning" size="sm">Cost Not Set</app-badge>
+                        } @else {
+                          <app-badge variant="success" size="sm">Valid Cost</app-badge>
+                        }
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ========================================== -->
+    <!-- 4. STOCK MOVEMENT REPORT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'stock-movement') {
+      @if (stockMovements(); as movData) {
+        <!-- KPI Cards -->
+        <div class="report-kpi-grid">
+          <app-kpi-card
+            label="Total Movement Records"
+            [value]="movData.totalMovements.toString()"
+            icon="movements"
+            subtext="Audit log entries within selected period"
+            badgeText="Audit Log"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Total Stock Inflow"
+            [value]="'+' + (movData.totalInflowUnits | number)"
+            icon="arrow-up-right"
+            subtext="Receipts, transfer-in, positive adjustments"
+            badgeText="Inflow"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Total Stock Outflow"
+            [value]="'-' + (movData.totalOutflowUnits | number)"
+            icon="arrow-down-right"
+            subtext="Order fulfillments, transfer-out, reductions"
+            badgeText="Outflow"
+            badgeVariant="warning"
+            accent="warning"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Net Stock Delta"
+            [value]="(movData.netDeltaUnits >= 0 ? '+' : '') + (movData.netDeltaUnits | number)"
+            icon="trending-up"
+            subtext="Net change: Inflow - Outflow"
+            [badgeText]="movData.netDeltaUnits >= 0 ? 'Net Gain' : 'Net Reduction'"
+            [badgeVariant]="movData.netDeltaUnits >= 0 ? 'success' : 'danger'"
+          ></app-kpi-card>
+        </div>
+
+        <!-- Movement Table -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Stock Movements Audit Log</h3>
+              <p class="ss-card-subtitle">Complete chronological inventory audit trail with signed directions</p>
+            </div>
+            <div class="header-tag-pill">
+              <span>{{ movData.items.length }} Records</span>
+            </div>
+          </div>
+
+          @if (movData.items.length === 0) {
+            <app-empty-state
+              title="No Movement Records Found"
+              message="No stock movements matched the selected date window, product, facility, or movement type."
+            ></app-empty-state>
+          } @else {
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>Date & Time</th>
+                    <th>Reference</th>
+                    <th>Movement Type</th>
+                    <th>Product</th>
+                    <th>Facility</th>
+                    <th>Direction</th>
+                    <th class="ss-table-numeric">Quantity</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (m of movData.items; track m.id) {
+                    <tr>
+                      <td class="font-mono text-muted">{{ m.createdAt | date:'mediumDate' }} {{ m.createdAt | date:'shortTime' }}</td>
+                      <td><span class="font-mono font-medium">{{ m.referenceType || 'N/A' }}</span></td>
+                      <td>
+                        <app-badge [variant]="getMovementBadgeVariant(m.movementType)" size="sm">
+                          {{ m.movementType }}
+                        </app-badge>
+                      </td>
+                      <td>
+                        <div>
+                          <span class="font-semibold text-primary">{{ m.productName }}</span>
+                          <span class="text-xs text-muted block font-mono">{{ m.sku }}</span>
+                        </div>
+                      </td>
+                      <td>{{ m.locationName }}</td>
+                      <td>
+                        <app-badge [variant]="m.direction === 'IN' ? 'success' : 'danger'" size="sm">
+                          {{ m.direction }}
+                        </app-badge>
+                      </td>
+                      <td class="ss-table-numeric font-mono font-semibold" [class.text-success]="m.signedQuantity > 0" [class.text-danger]="m.signedQuantity < 0">
+                        {{ m.signedQuantity > 0 ? '+' : '' }}{{ m.signedQuantity }}
+                      </td>
+                      <td class="text-secondary text-sm">{{ m.remarks }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ========================================== -->
+    <!-- 5. ORDER SUMMARY REPORT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'order-summary') {
+      @if (orderSummary(); as ordData) {
+        <!-- KPI Cards -->
+        <div class="report-kpi-grid">
+          <app-kpi-card
+            label="Total Orders"
+            [value]="ordData.totalOrders.toString()"
+            icon="orders"
+            subtext="Orders recorded in system"
+            badgeText="All Orders"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Completed Orders"
+            [value]="ordData.completedOrders.toString()"
+            icon="check-circle"
+            subtext="Fulfilled orders with deducted inventory"
+            badgeText="Completed"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Pending Orders"
+            [value]="ordData.pendingOrders.toString()"
+            icon="clock"
+            subtext="Awaiting fulfillment / reservation"
+            badgeText="Pending"
+            badgeVariant="warning"
+            accent="warning"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Realized Sales Value"
+            [value]="ordData.completedOrderValue | currencyFormat"
+            icon="dollar"
+            subtext="Strictly from COMPLETED orders"
+            badgeText="Realized"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Total Units Sold"
+            [value]="(ordData.totalQuantity | number) || '0'"
+            icon="layers"
+            subtext="Cumulative item quantities ordered"
+            badgeText="Units"
+            badgeVariant="info"
+          ></app-kpi-card>
+        </div>
+
+        <!-- Orders Table -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Order Performance Summary</h3>
+              <p class="ss-card-subtitle">List of orders, fulfillment status, and order value (pending orders are never counted as realized sales)</p>
+            </div>
+            <div class="header-tag-pill">
+              <span>{{ ordData.items.length }} Orders</span>
+            </div>
+          </div>
+
+          @if (ordData.items.length === 0) {
+            <app-empty-state
+              title="No Orders Found"
+              message="No orders were placed within the selected time window and filter parameters."
+            ></app-empty-state>
+          } @else {
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>Order Number</th>
+                    <th>Date</th>
+                    <th>Customer</th>
+                    <th>Facility</th>
+                    <th>Status</th>
+                    <th class="ss-table-numeric">Line Items</th>
+                    <th class="ss-table-numeric">Total Qty</th>
+                    <th class="ss-table-numeric">Order Value (INR)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (order of ordData.items; track order.id) {
+                    <tr>
+                      <td class="font-mono font-medium text-primary">{{ order.orderNumber }}</td>
+                      <td class="font-mono text-muted">{{ order.orderDate | date:'mediumDate' }}</td>
+                      <td>{{ order.customerName }}</td>
+                      <td>{{ order.locationName }}</td>
+                      <td>
+                        <app-badge [variant]="getStatusBadgeVariant(order.status)" size="sm">
+                          {{ order.status }}
+                        </app-badge>
+                      </td>
+                      <td class="ss-table-numeric font-mono">{{ order.itemCount }}</td>
+                      <td class="ss-table-numeric font-mono font-medium">{{ order.totalQuantity | number }}</td>
+                      <td class="ss-table-numeric font-mono font-semibold" [class.text-success]="order.status === 'COMPLETED'">
+                        {{ order.orderValue | currencyFormat }}
+                      </td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ========================================== -->
+    <!-- 6. PURCHASE RECEIVING REPORT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'purchase-receiving') {
+      @if (purchaseReceiving(); as prData) {
+        <!-- KPI Cards -->
+        <div class="report-kpi-grid">
+          <app-kpi-card
+            label="Total Receipts"
+            [value]="prData.totalReceipts.toString()"
+            icon="suppliers"
+            subtext="Supplier shipments processed"
+            badgeText="Receipts"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Received Receipts"
+            [value]="prData.completedReceipts.toString()"
+            icon="check-circle"
+            subtext="Inventory received & credited"
+            badgeText="Completed"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Received Stock Units"
+            [value]="'+' + (prData.receivedQuantity | number)"
+            icon="layers"
+            subtext="Units received (cancelled excluded)"
+            badgeText="Inflow"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Total Received Value"
+            [value]="prData.receivedValue | currencyFormat"
+            icon="dollar"
+            subtext="Realized procurement cost basis"
+            badgeText="Procurement"
+            badgeVariant="info"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Cancelled Receipts"
+            [value]="prData.cancelledReceipts.toString()"
+            icon="minus"
+            subtext="Excluded from received totals"
+            badgeText="Cancelled"
+            badgeVariant="danger"
+            accent="danger"
+          ></app-kpi-card>
+        </div>
+
+        <!-- Supplier Breakdown -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Procurement by Supplier</h3>
+              <p class="ss-card-subtitle">Volume and expenditure breakdown across suppliers for completed receipts</p>
+            </div>
+          </div>
+
+          <div class="ss-table-container">
+            <table class="ss-table">
+              <thead>
+                <tr>
+                  <th>Supplier</th>
+                  <th class="ss-table-numeric">Completed Receipts</th>
+                  <th class="ss-table-numeric">Units Received</th>
+                  <th class="ss-table-numeric">Total Value (INR)</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (sup of prData.supplierBreakdown; track sup.supplierId) {
+                  <tr>
+                    <td><span class="font-semibold text-primary">{{ sup.supplierName }}</span></td>
+                    <td class="ss-table-numeric font-mono">{{ sup.receiptsCount }}</td>
+                    <td class="ss-table-numeric font-mono font-medium">{{ sup.receivedUnits | number }}</td>
+                    <td class="ss-table-numeric font-mono font-semibold text-primary">{{ sup.totalAmount | currencyFormat }}</td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Receipts List -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Receiving Transactions Log</h3>
+              <p class="ss-card-subtitle">Detailed record of vendor deliveries and inventory intake</p>
+            </div>
+            <div class="header-tag-pill">
+              <span>{{ prData.items.length }} Records</span>
+            </div>
+          </div>
+
+          @if (prData.items.length === 0) {
+            <app-empty-state
+              title="No Purchase Receipts Found"
+              message="No receiving shipments match the selected filters."
+            ></app-empty-state>
+          } @else {
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>Receiving #</th>
+                    <th>Date</th>
+                    <th>Supplier</th>
+                    <th>Facility</th>
+                    <th>Status</th>
+                    <th class="ss-table-numeric">Items</th>
+                    <th class="ss-table-numeric">Received Qty</th>
+                    <th class="ss-table-numeric">Total Value (INR)</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (rec of prData.items; track rec.id) {
+                    <tr>
+                      <td class="font-mono font-medium text-primary">{{ rec.receivingNumber }}</td>
+                      <td class="font-mono text-muted">{{ rec.receivingDate | date:'mediumDate' }}</td>
+                      <td>{{ rec.supplierName }}</td>
+                      <td>{{ rec.locationName }}</td>
+                      <td>
+                        <app-badge [variant]="getStatusBadgeVariant(rec.status)" size="sm">
+                          {{ rec.status }}
+                        </app-badge>
+                      </td>
+                      <td class="ss-table-numeric font-mono">{{ rec.itemCount }}</td>
+                      <td class="ss-table-numeric font-mono font-medium" [class.text-muted]="rec.status === 'CANCELLED'">
+                        {{ rec.receivedQuantity | number }}
+                      </td>
+                      <td class="ss-table-numeric font-mono font-semibold" [class.text-muted]="rec.status === 'CANCELLED'">
+                        {{ rec.totalAmount | currencyFormat }}
+                      </td>
+                      <td class="text-secondary text-sm">{{ rec.remarks || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    }
+
+    <!-- ========================================== -->
+    <!-- 7. STOCK TRANSFERS REPORT -->
+    <!-- ========================================== -->
+    @if (activeTab() === 'stock-transfers') {
+      @if (stockTransfers(); as trfData) {
+        <!-- KPI Cards -->
+        <div class="report-kpi-grid">
+          <app-kpi-card
+            label="Total Transfers"
+            [value]="trfData.totalTransfers.toString()"
+            icon="movements"
+            subtext="Inter-facility relocation records"
+            badgeText="Transfers"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Completed Transfers"
+            [value]="trfData.completedTransfers.toString()"
+            icon="check-circle"
+            subtext="Successfully relocated between facilities"
+            badgeText="Completed"
+            badgeVariant="success"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Total Relocated Units"
+            [value]="(trfData.totalUnitsRelocated | number) || '0'"
+            icon="layers"
+            subtext="Units moved (cancelled excluded)"
+            badgeText="Units"
+            badgeVariant="info"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Source Facilities"
+            [value]="trfData.sourceBreakdown.length.toString()"
+            icon="locations"
+            subtext="Facilities dispatching stock"
+            badgeText="Dispatch"
+            badgeVariant="neutral"
+          ></app-kpi-card>
+
+          <app-kpi-card
+            label="Cancelled Transfers"
+            [value]="trfData.cancelledTransfers.toString()"
+            icon="minus"
+            subtext="Excluded from relocation totals"
+            badgeText="Cancelled"
+            badgeVariant="danger"
+            accent="danger"
+          ></app-kpi-card>
+        </div>
+
+        <!-- Transfer Activity Summary Tables -->
+        <div class="transfers-grid">
+          <div class="ss-card">
+            <div class="ss-card-header">
+              <div>
+                <h4 class="ss-card-title text-sm">Dispatches by Source Facility</h4>
+              </div>
+            </div>
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>Facility</th>
+                    <th class="ss-table-numeric">Dispatches</th>
+                    <th class="ss-table-numeric">Units Moved</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (s of trfData.sourceBreakdown; track s.locationId) {
+                    <tr>
+                      <td><span class="font-semibold text-primary">{{ s.locationName }}</span></td>
+                      <td class="ss-table-numeric font-mono">{{ s.transferCount }}</td>
+                      <td class="ss-table-numeric font-mono font-medium text-warning">-{{ s.units | number }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="ss-card">
+            <div class="ss-card-header">
+              <div>
+                <h4 class="ss-card-title text-sm">Receipts by Destination Facility</h4>
+              </div>
+            </div>
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>Facility</th>
+                    <th class="ss-table-numeric">Receipts</th>
+                    <th class="ss-table-numeric">Units Received</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (d of trfData.destinationBreakdown; track d.locationId) {
+                    <tr>
+                      <td><span class="font-semibold text-primary">{{ d.locationName }}</span></td>
+                      <td class="ss-table-numeric font-mono">{{ d.transferCount }}</td>
+                      <td class="ss-table-numeric font-mono font-medium text-success">+{{ d.units | number }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Transfers List -->
+        <div class="ss-card">
+          <div class="ss-card-header">
+            <div>
+              <h3 class="ss-card-title">Inter-Facility Stock Transfers Log</h3>
+              <p class="ss-card-subtitle">Atomic transfer audit records (single primary source to avoid movement double counting)</p>
+            </div>
+            <div class="header-tag-pill">
+              <span>{{ trfData.items.length }} Transfers</span>
+            </div>
+          </div>
+
+          @if (trfData.items.length === 0) {
+            <app-empty-state
+              title="No Stock Transfers Found"
+              message="No inter-facility transfers match the selected filters."
+            ></app-empty-state>
+          } @else {
+            <div class="ss-table-container">
+              <table class="ss-table">
+                <thead>
+                  <tr>
+                    <th>Transfer #</th>
+                    <th>Date</th>
+                    <th>Product</th>
+                    <th>Source Facility</th>
+                    <th>Destination Facility</th>
+                    <th class="ss-table-numeric">Quantity</th>
+                    <th>Status</th>
+                    <th>Remarks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  @for (t of trfData.items; track t.id) {
+                    <tr>
+                      <td class="font-mono font-medium text-primary">{{ t.transferNumber }}</td>
+                      <td class="font-mono text-muted">{{ t.transferDate | date:'mediumDate' }}</td>
+                      <td>
+                        <span class="font-semibold text-primary">{{ t.productName }}</span>
+                        <span class="text-xs text-muted block font-mono">{{ t.sku }}</span>
+                      </td>
+                      <td>{{ t.sourceLocationName }}</td>
+                      <td>{{ t.destinationLocationName }}</td>
+                      <td class="ss-table-numeric font-mono font-semibold" [class.text-muted]="t.status === 'CANCELLED'">
+                        {{ t.quantity | number }}
+                      </td>
+                      <td>
+                        <app-badge [variant]="getStatusBadgeVariant(t.status)" size="sm">
+                          {{ t.status }}
+                        </app-badge>
+                      </td>
+                      <td class="text-secondary text-sm">{{ t.remarks || '—' }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
+          }
+        </div>
+      }
+    }
+
+  }
+</div>

@@ -1,0 +1,50 @@
+:host {
+  display: block;
+}
+
+.filter-bar {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  background-color: var(--color-slate-50);
+}
+
+.search-box {
+  max-width: 380px;
+  position: relative;
+}
+
+.search-icon {
+  position: absolute;
+  left: 11px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-slate-400);
+  pointer-events: none;
+}
+
+.facility-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.facility-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.8125rem;
+}
+
+.facility-type-badge {
+  font-size: 0.6875rem;
+  background-color: var(--color-slate-100);
+  border: 1px solid var(--border-subtle);
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  color: var(--color-slate-700);
+  font-weight: 500;
+  display: inline-block;
+}
+
+.table-skeleton-row {
+  margin-bottom: 8px;
+}

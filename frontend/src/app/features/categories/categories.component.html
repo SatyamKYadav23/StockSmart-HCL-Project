@@ -1,0 +1,377 @@
+<div class="feature-page-container">
+  <!-- Toast Feedback Notification -->
+  <div *ngIf="toastMessage()" class="ss-toast" role="alert">
+    <div class="toast-content">
+      <app-icon name="check-circle" [size]="16" [color]="'var(--color-success-solid)'"></app-icon>
+      <span class="toast-text">{{ toastMessage() }}</span>
+    </div>
+    <button type="button" class="toast-close" (click)="toastMessage.set(null)" aria-label="Close notification">
+      <app-icon name="x" [size]="14"></app-icon>
+    </button>
+  </div>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="header-titles">
+      <h2 class="page-title">Category Management</h2>
+      <p class="page-subtitle">Product classifications, taxonomy organization, and catalog hierarchy</p>
+    </div>
+    <div class="header-actions">
+      <button
+        type="button"
+        class="ss-btn ss-btn-secondary"
+        (click)="loadData()"
+        [disabled]="isLoading()"
+        title="Refresh category catalog"
+      >
+        <app-icon name="refresh" [size]="14"></app-icon>
+        <span>Refresh</span>
+      </button>
+      <button type="button" class="ss-btn ss-btn-primary" (click)="openAddModal()">
+        <app-icon name="plus" [size]="14"></app-icon>
+        <span>Add Category</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI Metrics Grid -->
+  <div class="kpi-grid">
+    <ng-container *ngIf="isLoading()">
+      <div *ngFor="let i of [1, 2, 3]" class="ss-card kpi-skeleton-card">
+        <app-loading-skeleton width="50%" height="12px"></app-loading-skeleton>
+        <app-loading-skeleton width="70%" height="28px"></app-loading-skeleton>
+        <app-loading-skeleton width="40%" height="14px"></app-loading-skeleton>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="!isLoading()">
+      <app-kpi-card
+        label="Total Categories"
+        [value]="stats().totalCategories"
+        icon="tag"
+        subtext="Taxonomy groupings"
+        badgeText="Active Master"
+        badgeVariant="neutral"
+        [badgeShowDot]="false"
+      ></app-kpi-card>
+
+      <app-kpi-card
+        label="Products Classified"
+        [value]="stats().totalClassifiedProducts"
+        icon="products"
+        subtext="Linked in catalog"
+        badgeText="Assigned Items"
+        badgeVariant="info"
+        [badgeShowDot]="false"
+      ></app-kpi-card>
+
+      <app-kpi-card
+        label="Unassigned Categories"
+        [value]="stats().emptyCategoriesCount"
+        icon="boxes"
+        subtext="Categories with 0 items"
+        badgeText="No Products"
+        badgeVariant="neutral"
+        [badgeShowDot]="false"
+      ></app-kpi-card>
+    </ng-container>
+  </div>
+
+  <!-- Main Card Container: Filter + Table -->
+  <div class="ss-card">
+    <!-- Filter Bar -->
+    <div class="filter-bar">
+      <div class="search-box">
+        <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+        <input
+          type="text"
+          class="ss-input ss-input-with-icon"
+          placeholder="Search by category name or description..."
+          [ngModel]="searchQuery()"
+          (ngModelChange)="searchQuery.set($event)"
+        />
+      </div>
+
+      <div class="filter-meta">
+        <span class="text-xs text-muted font-mono">
+          Showing {{ enrichedCategories().length }} of {{ categories().length }} categories
+        </span>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div *ngIf="hasError()" style="padding: 24px;">
+      <app-error-state
+        title="Unable to load categories"
+        [description]="errorMessage()"
+        [showRetry]="true"
+        (retry)="loadData()"
+      ></app-error-state>
+    </div>
+
+    <!-- Table Container -->
+    <div *ngIf="!hasError()" class="ss-table-container">
+      <!-- Loading Skeletons -->
+      <div *ngIf="isLoading()" style="padding: 16px;">
+        <app-loading-skeleton *ngFor="let i of [1, 2, 3, 4]" height="38px" extraClass="table-skeleton-row"></app-loading-skeleton>
+      </div>
+
+      <!-- Loaded Data Table -->
+      <table *ngIf="!isLoading() && enrichedCategories().length > 0" class="ss-table">
+        <thead>
+          <tr>
+            <th style="min-width: 200px;">Category Name</th>
+            <th>Description</th>
+            <th style="width: 170px;">Associated Products</th>
+            <th style="width: 150px;">Created Date</th>
+            <th style="text-align: right; min-width: 140px;">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let cat of enrichedCategories()">
+            <td>
+              <div class="category-name-cell">
+                <span class="category-icon-tag">
+                  <app-icon name="tag" [size]="13"></app-icon>
+                </span>
+                <span class="category-title">{{ cat.name }}</span>
+              </div>
+            </td>
+            <td>
+              <span *ngIf="cat.description" class="category-desc">{{ cat.description }}</span>
+              <span *ngIf="!cat.description" class="text-xs text-muted">—</span>
+            </td>
+            <td>
+              <app-badge [variant]="cat.productsCount > 0 ? 'info' : 'neutral'" size="sm">
+                {{ cat.productsCount }} {{ cat.productsCount === 1 ? 'Product' : 'Products' }}
+              </app-badge>
+            </td>
+            <td class="font-mono text-muted text-xs">
+              {{ cat.createdAt ? (cat.createdAt | date:'mediumDate') : '—' }}
+            </td>
+            <td style="text-align: right;">
+              <div class="row-actions">
+                <button
+                  type="button"
+                  class="ss-btn ss-btn-secondary ss-btn-sm"
+                  (click)="openEditModal(cat)"
+                  title="Edit category details"
+                >
+                  <span>Edit</span>
+                </button>
+                <button
+                  type="button"
+                  class="ss-btn ss-btn-outline ss-btn-sm btn-delete"
+                  (click)="openDeleteModal(cat)"
+                  title="Delete category"
+                >
+                  <span>Delete</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Empty State -->
+      <div *ngIf="!isLoading() && enrichedCategories().length === 0" style="padding: 32px;">
+        <app-empty-state
+          *ngIf="searchQuery().trim().length > 0"
+          icon="search"
+          title="No categories match your search"
+          [description]="'No results found matching \'' + searchQuery() + '\'.'"
+          actionLabel="Clear Search"
+          actionIcon="x"
+          (actionClicked)="searchQuery.set('')"
+        ></app-empty-state>
+
+        <app-empty-state
+          *ngIf="searchQuery().trim().length === 0"
+          icon="tag"
+          title="No categories configured yet"
+          description="Categories allow you to group inventory items and catalog SKUs efficiently."
+          actionLabel="Add Category"
+          actionIcon="plus"
+          (actionClicked)="openAddModal()"
+        ></app-empty-state>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       ADD / EDIT CATEGORY MODAL
+       ========================================================================= -->
+  <div *ngIf="isFormModalOpen()" class="modal-backdrop" (click)="closeFormModal()">
+    <div class="modal-container modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 class="modal-title">{{ isEditing() ? 'Edit Category' : 'Add Category' }}</h3>
+          <p class="modal-subtitle">
+            {{ isEditing() ? 'Update category name and classification details' : 'Create a new classification category for products' }}
+          </p>
+        </div>
+        <button
+          type="button"
+          class="modal-close-btn"
+          (click)="closeFormModal()"
+          [disabled]="isSubmitting()"
+          aria-label="Close dialog"
+        >
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <form [formGroup]="categoryForm" (ngSubmit)="submitForm()">
+        <div class="modal-body">
+          <!-- Server Error Banner -->
+          <div *ngIf="formErrorMessage()" class="form-error-banner" role="alert">
+            <app-icon name="alert-triangle" [size]="16" [color]="'var(--color-danger-solid)'"></app-icon>
+            <span>{{ formErrorMessage() }}</span>
+          </div>
+
+          <!-- Category Name -->
+          <div class="form-group">
+            <label class="form-label" for="category-name">
+              Category Name <span class="required">*</span>
+            </label>
+            <input
+              id="category-name"
+              type="text"
+              class="ss-input"
+              formControlName="name"
+              placeholder="e.g. Office Supplies, Electronics"
+              [class.input-error]="categoryForm.get('name')?.touched && categoryForm.get('name')?.invalid"
+              maxlength="100"
+            />
+            <span
+              *ngIf="categoryForm.get('name')?.touched && categoryForm.get('name')?.hasError('required')"
+              class="field-error-text"
+            >
+              Category name is required.
+            </span>
+            <span
+              *ngIf="categoryForm.get('name')?.touched && categoryForm.get('name')?.hasError('maxlength')"
+              class="field-error-text"
+            >
+              Maximum 100 characters allowed.
+            </span>
+          </div>
+
+          <!-- Description -->
+          <div class="form-group">
+            <label class="form-label" for="category-desc">
+              Description <span class="text-xs text-muted">(Optional)</span>
+            </label>
+            <textarea
+              id="category-desc"
+              rows="3"
+              class="ss-input"
+              formControlName="description"
+              placeholder="Brief details about what items belong to this category..."
+              maxlength="255"
+            ></textarea>
+            <span
+              *ngIf="categoryForm.get('description')?.touched && categoryForm.get('description')?.hasError('maxlength')"
+              class="field-error-text"
+            >
+              Maximum 255 characters allowed.
+            </span>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button
+            type="button"
+            class="ss-btn ss-btn-secondary"
+            (click)="closeFormModal()"
+            [disabled]="isSubmitting()"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            class="ss-btn ss-btn-primary"
+            [disabled]="isSubmitting() || categoryForm.invalid"
+          >
+            <app-icon *ngIf="!isSubmitting()" name="check-circle" [size]="14"></app-icon>
+            <span>{{ isSubmitting() ? 'Saving...' : (isEditing() ? 'Save Changes' : 'Create Category') }}</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- =========================================================================
+       DELETE CONFIRMATION MODAL
+       ========================================================================= -->
+  <div *ngIf="isDeleteModalOpen()" class="modal-backdrop" (click)="closeDeleteModal()">
+    <div class="modal-container modal-sm" (click)="$event.stopPropagation()">
+      <div class="modal-header">
+        <h3 class="modal-title">Delete Category</h3>
+        <button
+          type="button"
+          class="modal-close-btn"
+          (click)="closeDeleteModal()"
+          [disabled]="isDeleting()"
+          aria-label="Close dialog"
+        >
+          <app-icon name="x" [size]="18"></app-icon>
+        </button>
+      </div>
+
+      <div class="modal-body">
+        <!-- Error Banner from API -->
+        <div *ngIf="deleteErrorMessage()" class="form-error-banner" role="alert">
+          <app-icon name="alert-triangle" [size]="16" [color]="'var(--color-danger-solid)'"></app-icon>
+          <span>{{ deleteErrorMessage() }}</span>
+        </div>
+
+        <!-- Case 1: Category is linked to active products (Referential Integrity Block) -->
+        <div *ngIf="categoryToDelete()?.productsCount && categoryToDelete()!.productsCount > 0" class="delete-blocked-banner">
+          <div class="delete-blocked-header">
+            <app-icon name="alert-triangle" [size]="16" [color]="'var(--color-warning-solid)'"></app-icon>
+            <span class="font-semibold text-warning">Cannot Delete Category</span>
+          </div>
+          <p class="delete-blocked-message">
+            <strong>"{{ categoryToDelete()?.name }}"</strong> is currently assigned to
+            <span class="font-bold">{{ categoryToDelete()?.productsCount }}</span> active
+            {{ categoryToDelete()?.productsCount === 1 ? 'product' : 'products' }}.
+          </p>
+          <p class="delete-blocked-hint">
+            To maintain catalog consistency, please reassign or remove all associated products before deleting this category.
+          </p>
+        </div>
+
+        <!-- Case 2: Safe to delete (0 linked products) -->
+        <div *ngIf="!categoryToDelete()?.productsCount || categoryToDelete()!.productsCount === 0">
+          <p class="delete-warning-text">
+            Are you sure you want to delete category <strong>"{{ categoryToDelete()?.name }}"</strong>?
+          </p>
+          <p class="delete-sub-text">
+            This action cannot be undone.
+          </p>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button
+          type="button"
+          class="ss-btn ss-btn-secondary"
+          (click)="closeDeleteModal()"
+          [disabled]="isDeleting()"
+        >
+          {{ (categoryToDelete()?.productsCount ?? 0) > 0 ? 'Close' : 'Cancel' }}
+        </button>
+        <button
+          *ngIf="(categoryToDelete()?.productsCount ?? 0) === 0"
+          type="button"
+          class="ss-btn ss-btn-primary btn-confirm-delete"
+          (click)="confirmDelete()"
+          [disabled]="isDeleting()"
+        >
+          <span>{{ isDeleting() ? 'Deleting...' : 'Delete Category' }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

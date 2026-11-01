@@ -1,0 +1,71 @@
+<header class="navbar">
+  <!-- Left Side: Mobile Menu Button & Breadcrumb / Page Context -->
+  <div class="navbar-left">
+    <button
+      type="button"
+      class="mobile-menu-toggle"
+      (click)="layoutService.toggleSidebarMobile()"
+      aria-label="Open sidebar navigation"
+    >
+      <app-icon name="menu" [size]="18"></app-icon>
+    </button>
+
+    <nav class="breadcrumb-nav" aria-label="Breadcrumb">
+      <span class="breadcrumb-root">StockSmart</span>
+      <span class="breadcrumb-divider">/</span>
+      <span class="breadcrumb-current">{{ currentPageTitle }}</span>
+    </nav>
+  </div>
+
+  <!-- Center: Global Command Search Input -->
+  <div class="navbar-center">
+    <div class="command-search-bar">
+      <app-icon name="search" [size]="14" extraClass="search-icon"></app-icon>
+      <input
+        type="search"
+        class="command-search-input"
+        placeholder="Quick jump or search catalog (Ctrl+K)..."
+        (input)="onSearch($event)"
+        aria-label="Search catalog"
+      />
+      <div class="command-shortcut-hint">
+        <kbd>⌘K</kbd>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right Side: Status Badge, Notifications, User Profile -->
+  <div class="navbar-right">
+    <!-- Live Environment Status Indicator -->
+    <div class="env-status-badge">
+      <span class="env-status-beacon">
+        <span class="beacon-pulse"></span>
+        <span class="beacon-dot"></span>
+      </span>
+      <span class="env-status-label">Production</span>
+    </div>
+
+    <!-- Notification Bell Button -->
+    <button
+      type="button"
+      class="navbar-icon-btn"
+      aria-label="Notifications"
+      title="Stock alerts and notifications (3 unread)"
+    >
+      <app-icon name="notifications" [size]="16"></app-icon>
+      <span *ngIf="unreadNotificationsCount > 0" class="notification-count-badge">
+        {{ unreadNotificationsCount }}
+      </span>
+    </button>
+
+    <!-- User Profile Dropdown Pill -->
+    <div class="user-profile-btn" role="button" tabindex="0">
+      <div class="user-avatar-initials font-mono">MV</div>
+      <div class="user-meta">
+        <span class="user-display-name">Marcus Vance</span>
+        <span class="user-role-label">Inventory Lead</span>
+      </div>
+      <app-icon name="chevron-down" [size]="13" [color]="'var(--color-slate-400)'"></app-icon>
+    </div>
+  </div>
+</header>
